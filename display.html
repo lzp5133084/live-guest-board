@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>直播嘉宾资源看板 · 展示端 v3.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei","PingFang SC",sans-serif;}
+:root{
+    --bg-main:#02030a;
+    --bg-gradient:radial-gradient(ellipse at 20% 30%, #0a1438 0%, #050a1f 35%, #02030a 70%, #000005 100%);
+    --panel-bg:rgba(16,24,56,0.55);
+    --panel-border:rgba(64,145,255,0.35);
+    --panel-glow:0 0 24px rgba(40,120,255,0.18),inset 0 1px 0 rgba(100,180,255,0.15);
+    --title:#64b0ff;
+    --title-glow:0 0 12px rgba(100,176,255,0.6);
+    --text:#e8edf7;
+    --text-dim:#8ea4c8;
+    --thead-bg:linear-gradient(180deg,rgba(30,70,140,0.45),rgba(20,50,100,0.35));
+    --online-row:rgba(22,130,80,0.22);
+    --offline-row:rgba(140,45,55,0.22);
+    --grid:rgba(50,120,220,0.08);
+    --font-size:14px;
+    --accent:#4da6ff;
+    --radius:12px;
+    --panel-opacity:1;
+}
+body.black-gold{
+    --bg-main:#0a0703;
+    --bg-gradient:radial-gradient(ellipse at 30% 20%, #2a1c08 0%, #14100a 40%, #0a0703 75%, #050300 100%);
+    --panel-bg:rgba(32,24,14,0.6);
+    --panel-border:rgba(212,164,86,0.42);
+    --panel-glow:0 0 24px rgba(204,148,56,0.2),inset 0 1px 0 rgba(255,210,120,0.18);
+    --title:#ffc873;
+    --title-glow:0 0 12px rgba(255,200,115,0.6);
+    --text:#f5ede0;
+    --text-dim:#c8b89a;
+    --thead-bg:linear-gradient(180deg,rgba(80,60,28,0.45),rgba(55,40,18,0.35));
+    --online-row:rgba(26,100,62,0.22);
+    --offline-row:rgba(120,40,35,0.25);
+    --grid:rgba(172,134,64,0.1);
+    --accent:#d4a046;
+}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{
+    background:var(--bg-gradient);
+    color:var(--text);
+    font-size:var(--font-size);
+}
+/* 深空星空背景层 */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+#nebulaCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:0.55;mix-blend-mode:screen;}
+/* 网格扫描线（科技感） */
+.grid-overlay{
+    position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;
+    background-image:
+        linear-gradient(rgba(64,145,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(64,145,255,0.04) 1px, transparent 1px);
+    background-size:60px 60px;
+    mask-image:radial-gradient(ellipse at center, black 30%, transparent 80%);
+    -webkit-mask-image:radial-gradient(ellipse at center, black 30%, transparent 80%);
+}
+
+/* ===== 全屏按钮 ===== */
+.fullscreen-btn{
+    position:fixed;top:12px;right:12px;z-index:100;
+    width:36px;height:36px;border-radius:8px;
+    background:rgba(0,0,0,0.35);
+    border:1px solid var(--panel-border);
+    color:var(--title);font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0.3;transition:all 0.3s ease;
+    backdrop-filter:blur(8px);
+}
+.fullscreen-btn:hover{
+    opacity:1;
+    background:rgba(0,0,0,0.6);
+    box-shadow:0 0 12px var(--title-glow);
+    transform:scale(1.08);
+}
+.fullscreen-hint{
+    position:fixed;top:56px;right:12px;z-index:100;
+    font-size:11px;color:var(--text-dim);
+    background:rgba(0,0,0,0.4);padding:4px 8px;border-radius:4px;
+    opacity:0;transition:opacity 0.3s;pointer-events:none;
+}
+.fullscreen-btn:hover + .fullscreen-hint{opacity:1;}
+
+/* ===== 浮窗功能 ===== */
+.float-add-btn{
+    position:fixed;top:56px;right:12px;z-index:100;
+    width:36px;height:36px;border-radius:8px;
+    background:rgba(0,0,0,0.35);
+    border:1px solid var(--panel-border);
+    color:var(--title);font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0.3;transition:all 0.3s ease;
+    backdrop-filter:blur(8px);
+}
+.float-add-btn:hover{
+    opacity:1;
+    background:rgba(0,0,0,0.6);
+    box-shadow:0 0 12px var(--title-glow);
+    transform:scale(1.08);
+}
+.float-win{
+    position:fixed;z-index:50;
+    min-width:320px;max-width:480px;
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    box-shadow:var(--panel-glow);
+    backdrop-filter:blur(12px);
+    overflow:hidden;
+    user-select:none;
+}
+.float-win.minimized{min-width:200px;max-width:200px;}
+.float-win.minimized .float-body,
+.float-win.minimized .float-footer{display:none;}
+.float-header{
+    padding:10px 14px;
+    background:rgba(0,0,0,0.3);
+    border-bottom:1px solid var(--panel-border);
+    cursor:move;
+    display:flex;align-items:center;gap:8px;
+}
+.float-header .float-title{
+    flex:1;font-size:13px;font-weight:bold;color:var(--title);
+    letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.float-header .float-actions{
+    display:flex;gap:4px;
+}
+.float-header .float-actions button{
+    width:24px;height:24px;border:none;border-radius:4px;
+    background:transparent;color:var(--text-dim);
+    cursor:pointer;font-size:12px;
+    display:flex;align-items:center;justify-content:center;
+}
+.float-header .float-actions button:hover{
+    background:var(--accent);color:#fff;
+}
+.float-body{
+    padding:12px 14px;max-height:380px;overflow-y:auto;
+}
+.float-body .form-item{margin-bottom:10px;}
+.float-body .form-item label{
+    display:block;font-size:12px;color:var(--text-dim);
+    margin-bottom:4px;letter-spacing:0.5px;
+}
+.float-body .form-item input,
+.float-body .form-item select,
+.float-body .form-item textarea{
+    width:100%;padding:6px 10px;
+    background:rgba(0,0,0,0.3);
+    border:1px solid var(--panel-border);
+    border-radius:6px;color:var(--text);
+    font-size:12px;font-family:inherit;
+    box-sizing:border-box;outline:none;
+}
+.float-body .form-item input:focus,
+.float-body .form-item select:focus,
+.float-body .form-item textarea:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 8px rgba(77,166,255,0.3);
+}
+.float-body .form-item textarea{
+    min-height:60px;resize:vertical;
+}
+.float-body .smart-parse-btn{
+    width:100%;padding:6px;margin-bottom:10px;
+    background:linear-gradient(135deg,var(--accent),rgba(77,166,255,0.3));
+    border:1px solid var(--accent);border-radius:6px;
+    color:#fff;font-size:12px;cursor:pointer;font-weight:bold;
+}
+.float-body .smart-parse-btn:hover{
+    box-shadow:0 0 12px var(--title-glow);
+}
+.float-body .parse-hint{
+    font-size:11px;color:var(--text-dim);
+    line-height:1.6;margin-bottom:8px;
+    padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;
+}
+.float-footer{
+    padding:10px 14px;
+    border-top:1px solid var(--panel-border);
+    display:flex;gap:8px;
+}
+.float-footer button{
+    flex:1;padding:7px 0;
+    border-radius:6px;font-size:12px;cursor:pointer;
+    font-weight:bold;border:1px solid transparent;
+}
+.float-footer .btn-cancel{
+    background:rgba(231,76,60,0.2);
+    border-color:#e74c3c;color:#e74c3c;
+}
+.float-footer .btn-cancel:hover{background:rgba(231,76,60,0.35);}
+.float-footer .btn-save{
+    background:linear-gradient(135deg,var(--accent),rgba(77,166,255,0.3));
+    border-color:var(--accent);color:#fff;
+}
+.float-footer .btn-save:hover{box-shadow:0 0 12px var(--title-glow);}
+.float-footer .btn-import{
+    background:linear-gradient(135deg,#2ecc71,rgba(46,204,113,0.3));
+    border-color:#2ecc71;color:#fff;
+}
+.float-footer .btn-import:hover{box-shadow:0 0 12px rgba(46,204,113,0.5);}
+.float-win.saved .float-header{background:rgba(46,204,113,0.15);}
+.float-win.saved .float-title::before{
+    content:'✓ ';color:#2ecc71;
+}
+.container{
+    position:relative;z-index:1;width:100vw;height:100vh;
+    display:grid;grid-template-columns:260px 1fr 260px;gap:14px;padding:18px;
+}
+.panel{
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    box-shadow:var(--panel-glow);
+    backdrop-filter:blur(12px);
+    padding:16px;
+    display:flex;flex-direction:column;
+    opacity:var(--panel-opacity);
+    transition:opacity 0.3s ease;
+}
+.panel-title{
+    font-size:16px;color:var(--title);
+    margin-bottom:12px;padding-bottom:8px;
+    border-bottom:1px solid var(--panel-border);
+    font-weight:bold;letter-spacing:2px;
+    display:flex;align-items:center;gap:8px;
+}
+.panel-title::before{
+    content:"";width:4px;height:16px;border-radius:2px;
+    background:linear-gradient(180deg,var(--accent),transparent);
+    box-shadow:0 0 8px var(--accent);
+}
+.left-panel p,.right-panel p{line-height:2;font-size:13px;margin:3px 0;}
+.info-item{
+    display:flex;align-items:center;gap:8px;
+    padding:6px 10px;border-radius:6px;
+    background:rgba(0,0,0,0.2);
+    font-size:12px;margin:3px 0;
+}
+.info-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);}
+
+.center-panel{display:flex;flex-direction:column;min-height:0;}
+.main-title{
+    text-align:center;font-size:22px;color:var(--title);
+    text-shadow:var(--title-glow);
+    letter-spacing:4px;margin-bottom:4px;
+    font-weight:bold;
+}
+.main-sub{
+    text-align:center;font-size:12px;color:var(--text-dim);
+    margin-bottom:12px;letter-spacing:2px;
+}
+.table-wrap{flex:1;overflow:auto;border-radius:8px;border:1px solid var(--panel-border);}
+table{width:100%;border-collapse:collapse;font-size:var(--font-size);}
+th,td{border:1px solid var(--panel-border);padding:10px 12px;text-align:left;}
+th{
+    background:var(--thead-bg);
+    color:var(--title);
+    position:sticky;top:0;z-index:1;
+    font-weight:bold;letter-spacing:1px;
+}
+tr.online{background:var(--online-row);animation:rowFadeIn 0.5s;}
+tr.offline{background:var(--offline-row);animation:rowFadeIn 0.5s;}
+tr.top-row{outline:2px solid #f39c12;outline-offset:-2px;}
+@keyframes rowFadeIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
+
+.status-tag{
+    display:inline-block;padding:3px 10px;border-radius:12px;
+    font-size:11px;font-weight:bold;
+}
+.tag-online{background:rgba(46,204,113,0.25);color:#2ecc71;border:1px solid rgba(46,204,113,0.4);}
+.tag-offline{background:rgba(231,76,60,0.25);color:#e74c3c;border:1px solid rgba(231,76,60,0.4);}
+
+.stats-bar{
+    margin-top:10px;display:flex;justify-content:center;gap:20px;
+    padding:8px 16px;border-radius:8px;
+    background:rgba(0,0,0,0.25);
+    border:1px solid var(--panel-border);
+}
+.stat-item{font-size:12px;color:var(--text-dim);}
+.stat-item b{color:var(--accent);font-size:16px;margin:0 4px;}
+
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
+::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:3px;}
+
+/* ===== 透明度调节控件（左下角） ===== */
+.opacity-ctrl{
+    position:fixed;bottom:14px;left:28px;z-index:100;
+    background:rgba(0,0,0,0.45);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    backdrop-filter:blur(8px);
+    padding:7px 14px;
+    display:flex;align-items:center;gap:10px;
+    opacity:0.4;transition:opacity 0.3s ease;
+    user-select:none;
+}
+.opacity-ctrl:hover{opacity:1;}
+.opacity-ctrl label{
+    font-size:12px;color:var(--text-dim);
+    letter-spacing:0.5px;white-space:nowrap;
+}
+.opacity-ctrl input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    width:100px;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,var(--accent),rgba(77,166,255,0.2));
+    outline:none;cursor:pointer;
+}
+.opacity-ctrl input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:13px;height:13px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+    cursor:pointer;border:2px solid #fff;
+}
+.opacity-ctrl input[type=range]::-moz-range-thumb{
+    width:13px;height:13px;border-radius:50%;
+    background:var(--accent);border:2px solid #fff;cursor:pointer;
+}
+.opacity-ctrl .op-value{
+    font-size:12px;color:var(--title);font-weight:bold;
+    min-width:32px;text-align:center;
+}
+.opacity-ctrl button{
+    width:20px;height:20px;border:1px solid var(--panel-border);
+    border-radius:4px;background:transparent;color:var(--text-dim);
+    cursor:pointer;font-size:10px;
+    display:flex;align-items:center;justify-content:center;
+}
+.opacity-ctrl button:hover{background:var(--accent);color:#fff;}
+
+/* ===== 背景模式切换控件（右下角） ===== */
+.bg-mode-ctrl{
+    position:fixed;bottom:14px;right:28px;z-index:100;
+    background:rgba(0,0,0,0.45);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    backdrop-filter:blur(8px);
+    padding:6px 10px;
+    display:flex;gap:6px;
+    opacity:0.4;transition:opacity 0.3s ease;
+    user-select:none;
+}
+.bg-mode-ctrl:hover{opacity:1;}
+.bg-mode-ctrl button{
+    padding:5px 12px;font-size:12px;
+    border:1px solid var(--panel-border);border-radius:6px;
+    background:transparent;color:var(--text-dim);cursor:pointer;
+    transition:all 0.25s;
+}
+.bg-mode-ctrl button.active{
+    background:var(--accent);color:#fff;
+    box-shadow:0 0 8px var(--accent);
+}
+.bg-mode-ctrl button:hover{color:var(--text);}
+</style>
+</head>
+<body>
+<canvas id="nebulaCanvas"></canvas>
+<canvas id="bgCanvas"></canvas>
+<div class="grid-overlay"></div>
+
+<!-- 透明度调节 -->
+<div class="opacity-ctrl" id="opacityCtrl">
+    <label>透视</label>
+    <button id="opMinus" title="降低透明度">−</button>
+    <input type="range" id="opacityRange" min="30" max="100" value="100" step="5">
+    <button id="opPlus" title="提高透明度">+</button>
+    <span class="op-value" id="opValue">100%</span>
+</div>
+
+<!-- 星空模式切换 -->
+<div class="bg-mode-ctrl" id="bgModeCtrl">
+    <button data-mode="star" class="active">🌌星空</button>
+    <button data-mode="meteor">☄流星</button>
+    <button data-mode="warp">🌠曲速</button>
+    <button data-mode="off">⚫纯色</button>
+</div>
+
+<!-- 全屏按钮 -->
+<button class="fullscreen-btn" id="fsBtn" title="全屏显示 (F11)">⛶</button>
+<div class="fullscreen-hint">按 F11 切换全屏</div>
+
+<!-- 新建浮窗按钮 -->
+<button class="float-add-btn" id="floatAddBtn" title="新建浮窗 (N)">➕</button>
+
+<div class="container">
+    <div class="panel left-panel">
+        <div class="panel-title">直播间参与群体</div>
+        <div class="info-item"><span class="info-dot"></span>投资者 ｜ 寻找优质项目</div>
+        <div class="info-item"><span class="info-dot"></span>创业者 ｜ 自有项目寻求合作</div>
+        <div class="info-item"><span class="info-dot"></span>应用开发者 ｜ 落地解决方案</div>
+        <div class="info-item"><span class="info-dot"></span>技术求解者 ｜ 寻求技术对接</div>
+        <div class="info-item"><span class="info-dot"></span>大咖嘉宾（在线/离线）</div>
+        <div class="info-item"><span class="info-dot"></span>技术大拿（在线/离线）</div>
+        <br>
+        <div class="panel-title">对接方向</div>
+        <div class="info-item"><span class="info-dot"></span>项目合作 ｜ 技术对接 ｜ 领域交流</div>
+    </div>
+
+    <div class="panel center-panel">
+        <div class="main-title">上麦嘉宾资源列表</div>
+        <div class="main-sub">LIVE GUEST RESOURCE LIST</div>
+        <div class="table-wrap">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th width="80">状态</th>
+                        <th width="100">角色</th>
+                        <th width="100">名称</th>
+                        <th width="140">个人信息</th>
+                        <th width="140">入场时间</th>
+                        <th>内容描述</th>
+                        <th width="100">备注</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div class="stats-bar">
+            <div class="stat-item">总计 <b id="statTotal">0</b> 人</div>
+            <div class="stat-item">在线 <b id="statOnline" style="color:#2ecc71">0</b> 人</div>
+            <div class="stat-item">离线 <b id="statOffline" style="color:#e74c3c">0</b> 人</div>
+            <div class="stat-item">置顶 <b id="statTop" style="color:#f39c12">0</b> 人</div>
+        </div>
+    </div>
+
+    <div class="panel right-panel">
+        <div class="panel-title">上麦自我介绍规则</div>
+        <div class="info-item">⏱ 时长控制在5分钟以内</div>
+        <div class="info-item">📍 当前所在地</div>
+        <div class="info-item">🏢 身份：个人 / 公司</div>
+        <div class="info-item">🎯 重点关注领域</div>
+        <div class="info-item">📅 入场时间自动记录</div>
+        <div class="info-item">🤝 对接：项目｜技术｜行业</div>
+    </div>
+</div>
+
+<script>
+// ========== 深空星空背景 ==========
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+const nebulaCanvas = document.getElementById('nebulaCanvas');
+const nctx = nebulaCanvas.getContext('2d');
+let w, h, particles = [];
+let particleNum = 120;
+let particleSpeed = 0.6;
+let bgMode = 'star'; // star | meteor | warp | off
+let stars = [];        // 多层星点
+let meteors = [];      // 流星
+let warpStars = [];    // 曲速星
+let nebulaBlobs = [];  // 星云团
+let mouseX = 0, mouseY = 0; // 视差
+
+function resize(){
+    w=canvas.width=nebulaCanvas.width=window.innerWidth;
+    h=canvas.height=nebulaCanvas.height=window.innerHeight;
+    initStars();
+    initNebula();
+}
+window.addEventListener('resize',resize);
+
+// 鼠标视差
+window.addEventListener('mousemove', e=>{
+    mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+    mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+});
+
+// ===== 多层星点（远/中/近，带闪烁） =====
+class Star{
+    constructor(){
+        this.x=Math.random()*w;
+        this.y=Math.random()*h;
+        this.layer=Math.floor(Math.random()*3); // 0远 1中 2近
+        this.r=this.layer===0?Math.random()*0.6+0.2:
+               this.layer===1?Math.random()*1.0+0.4:
+               Math.random()*1.6+0.6;
+        this.baseAlpha=this.layer===0?0.3:this.layer===1?0.6:0.9;
+        this.twinkleSpeed=Math.random()*0.03+0.005;
+        this.twinklePhase=Math.random()*Math.PI*2;
+        this.colorPick=Math.random();
+    }
+    update(){
+        this.twinklePhase+=this.twinkleSpeed;
+        // 远景星随鼠标轻微视差
+        this.x += (this.layer+1)*0.02 * mouseX * (bgMode==='warp'?6:1);
+        this.y += (this.layer+1)*0.02 * mouseY * (bgMode==='warp'?6:1);
+        if(this.x<0)this.x+=w; if(this.x>w)this.x-=w;
+        if(this.y<0)this.y+=h; if(this.y>h)this.y-=h;
+    }
+    draw(){
+        const flicker = 0.6 + 0.4*Math.sin(this.twinklePhase);
+        const alpha = this.baseAlpha * flicker;
+        let color;
+        if(this.colorPick > 0.92) color = `rgba(180,220,255,${alpha})`;      // 蓝白
+        else if(this.colorPick > 0.85) color = `rgba(255,220,180,${alpha})`; // 暖白
+        else color = `rgba(230,240,255,${alpha})`;                           // 纯白
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        // 近景星带光晕
+        if(this.layer===2 && flicker > 0.85){
+            ctx.beginPath();
+            ctx.arc(this.x,this.y,this.r*3,0,Math.PI*2);
+            const grad = ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r*3);
+            grad.addColorStop(0, `rgba(150,200,255,${alpha*0.3})`);
+            grad.addColorStop(1, 'rgba(150,200,255,0)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+        }
+    }
+}
+function initStars(){
+    stars=[];
+    const count = bgMode==='warp'?60:180;
+    for(let i=0;i<count;i++)stars.push(new Star());
+}
+
+// ===== 流星 =====
+class Meteor{
+    constructor(){
+        this.reset();
+    }
+    reset(){
+        this.x=Math.random()*w*1.2;
+        this.y=-50;
+        this.len=Math.random()*120+80;
+        this.speed=Math.random()*6+4;
+        this.angle=Math.PI/4 + (Math.random()-0.5)*0.3;
+        this.alpha=1;
+        this.life=1;
+    }
+    update(){
+        this.x+=Math.cos(this.angle)*this.speed;
+        this.y+=Math.sin(this.angle)*this.speed;
+        this.life-=0.008;
+        this.alpha=this.life;
+        if(this.y>h+50 || this.x>w+50 || this.life<=0)this.reset();
+    }
+    draw(){
+        const tailX = this.x - Math.cos(this.angle)*this.len;
+        const tailY = this.y - Math.sin(this.angle)*this.len;
+        const grad = ctx.createLinearGradient(this.x,this.y,tailX,tailY);
+        grad.addColorStop(0, `rgba(255,255,255,${this.alpha})`);
+        grad.addColorStop(0.3, `rgba(150,200,255,${this.alpha*0.7})`);
+        grad.addColorStop(1, 'rgba(100,150,255,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(this.x,this.y);
+        ctx.lineTo(tailX,tailY);
+        ctx.stroke();
+        // 流星头部光点
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,2,0,Math.PI*2);
+        ctx.fillStyle = `rgba(255,255,255,${this.alpha})`;
+        ctx.fill();
+    }
+}
+
+// ===== 曲速星（从中心向外飞） =====
+class WarpStar{
+    constructor(){this.reset(true);}
+    reset(init){
+        this.cx=w/2; this.cy=h/2;
+        this.angle=Math.random()*Math.PI*2;
+        this.dist=init?Math.random()*Math.max(w,h)*0.5:0;
+        this.speed=Math.random()*8+2;
+        this.len=0;
+    }
+    update(){
+        this.dist+=this.speed;
+        this.speed*=1.02;
+        this.len=Math.min(this.speed*3, 60);
+        const x=this.cx+Math.cos(this.angle)*this.dist;
+        const y=this.cy+Math.sin(this.angle)*this.dist;
+        if(x<-50||x>w+50||y<-50||y>h+50)this.reset(false);
+        this.x=x; this.y=y;
+    }
+    draw(){
+        const tailX = this.cx+Math.cos(this.angle)*(this.dist-this.len);
+        const tailY = this.cy+Math.sin(this.angle)*(this.dist-this.len);
+        const alpha = Math.min(this.dist/200, 1);
+        ctx.strokeStyle = `rgba(150,200,255,${alpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.x,this.y);
+        ctx.lineTo(tailX,tailY);
+        ctx.stroke();
+    }
+}
+function initWarpStars(){
+    warpStars=[];
+    for(let i=0;i<120;i++)warpStars.push(new WarpStar());
+}
+
+// ===== 星云团（在独立canvas绘制，性能优化） =====
+function initNebula(){
+    nebulaBlobs=[];
+    const colors = [
+        [60,100,200],   // 蓝
+        [120,60,180],   // 紫
+        [40,120,160],   // 青
+        [180,80,140],   // 粉紫
+    ];
+    for(let i=0;i<5;i++){
+        nebulaBlobs.push({
+            x:Math.random()*w,
+            y:Math.random()*h,
+            r:Math.random()*200+250,
+            color:colors[i%colors.length],
+            alpha:Math.random()*0.15+0.08,
+            drift:{x:(Math.random()-0.5)*0.15, y:(Math.random()-0.5)*0.15}
+        });
+    }
+    drawNebula();
+}
+function drawNebula(){
+    nctx.clearRect(0,0,w,h);
+    nebulaBlobs.forEach(b=>{
+        b.x+=b.drift.x; b.y+=b.drift.y;
+        if(b.x<-b.r)b.x=w+b.r; if(b.x>w+b.r)b.x=-b.r;
+        if(b.y<-b.r)b.y=h+b.r; if(b.y>h+b.r)b.y=-b.r;
+        const grad = nctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
+        grad.addColorStop(0, `rgba(${b.color[0]},${b.color[1]},${b.color[2]},${b.alpha})`);
+        grad.addColorStop(1, `rgba(${b.color[0]},${b.color[1]},${b.color[2]},0)`);
+        nctx.fillStyle = grad;
+        nctx.beginPath();
+        nctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+        nctx.fill();
+    });
+    // 星云团缓慢移动，每3帧重绘一次
+    if(Math.random()<0.4) requestAnimationFrame(()=>drawNebula());
+    else setTimeout(()=>requestAnimationFrame(()=>drawNebula()), 60);
+}
+
+// ===== 主渲染循环 =====
+resize();
+function animate(){
+    if(bgMode==='off'){
+        ctx.clearRect(0,0,w,h);
+        requestAnimationFrame(animate);
+        return;
+    }
+    // 拖尾效果（让运动有残影）
+    ctx.fillStyle = 'rgba(2,3,10,0.25)';
+    ctx.fillRect(0,0,w,h);
+
+    if(bgMode==='star' || bgMode==='meteor'){
+        stars.forEach(s=>{s.update();s.draw();});
+    }
+    if(bgMode==='meteor'){
+        if(meteors.length===0) for(let i=0;i<5;i++) meteors.push(new Meteor());
+        meteors.forEach(m=>{m.update();m.draw();});
+    }else{
+        meteors=[];
+    }
+    if(bgMode==='warp'){
+        if(warpStars.length===0) initWarpStars();
+        warpStars.forEach(s=>{s.update();s.draw();});
+    }else{
+        warpStars=[];
+    }
+    requestAnimationFrame(animate);
+}
+animate();
+
+// ===== 星空模式切换 =====
+document.querySelectorAll('.bg-mode-ctrl button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.bg-mode-ctrl button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        bgMode = btn.dataset.mode;
+        localStorage.setItem('displayBgMode', bgMode);
+        if(bgMode==='star'||bgMode==='meteor') initStars();
+        if(bgMode==='warp') initWarpStars();
+        // 切换星云显示
+        nebulaCanvas.style.display = bgMode==='off' ? 'none' : 'block';
+    });
+});
+// 恢复上次模式
+const savedBgMode = localStorage.getItem('displayBgMode');
+if(savedBgMode){
+    bgMode = savedBgMode;
+    document.querySelectorAll('.bg-mode-ctrl button').forEach(b=>{
+        b.classList.toggle('active', b.dataset.mode===savedBgMode);
+    });
+    nebulaCanvas.style.display = bgMode==='off' ? 'none' : 'block';
+}
+
+// ===== 透明度调节 =====
+const opRange = document.getElementById('opacityRange');
+const opValue = document.getElementById('opValue');
+function setOpacity(v){
+    v = Math.max(30, Math.min(100, v));
+    opRange.value = v;
+    opValue.textContent = v + '%';
+    document.documentElement.style.setProperty('--panel-opacity', v/100);
+    localStorage.setItem('panelOpacity', v);
+}
+opRange.addEventListener('input', ()=>setOpacity(parseInt(opRange.value)));
+document.getElementById('opMinus').addEventListener('click', ()=>setOpacity(parseInt(opRange.value)-5));
+document.getElementById('opPlus').addEventListener('click', ()=>setOpacity(parseInt(opRange.value)+5));
+// 恢复上次透明度
+const savedOp = localStorage.getItem('panelOpacity');
+if(savedOp) setOpacity(parseInt(savedOp));
+
+
+// ========== WebSocket ==========
+const WS_URL = "ws://" + window.location.hostname + ":8086";
+const tableBody = document.getElementById('tableBody');
+let dataList = [];
+let sock = null;
+
+function escapeHtml(s){
+    if(!s)return'';
+    return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function renderTable(){
+    tableBody.innerHTML="";
+    const topItems=dataList.filter(i=>i.top===true);
+    const normalItems=dataList.filter(i=>!i.top);
+    const showList=[...topItems,...normalItems];
+
+    showList.forEach(item=>{
+        const tr=document.createElement('tr');
+        tr.className=item.status+(item.top?' top-row':'');
+        tr.innerHTML=`
+            <td><span class="status-tag ${item.status==='online'?'tag-online':'tag-offline'}">
+                ${item.status==='online'?'在线':'离线'}
+            </span></td>
+            <td>${escapeHtml(item.role)}</td>
+            <td><b>${escapeHtml(item.name)}</b></td>
+            <td>${escapeHtml(item.info)}</td>
+            <td style="font-size:12px;color:var(--text-dim)">${escapeHtml(item.joinTime)}</td>
+            <td style="font-size:12px;">${escapeHtml(item.desc)}</td>
+            <td style="font-size:12px;color:var(--text-dim)">${escapeHtml(item.remark)}</td>
+        `;
+        tableBody.appendChild(tr);
+    });
+
+    const online=dataList.filter(d=>d.status==='online').length;
+    const offline=dataList.length-online;
+    const top=dataList.filter(d=>d.top).length;
+    document.getElementById('statTotal').textContent=dataList.length;
+    document.getElementById('statOnline').textContent=online;
+    document.getElementById('statOffline').textContent=offline;
+    document.getElementById('statTop').textContent=top;
+}
+
+function connect(){
+    sock=new WebSocket(WS_URL);
+    sock.onmessage=e=>{
+        const msg=JSON.parse(e.data);
+        if(msg.type==="init"||msg.type==="data"){
+            dataList=msg.data||[];renderTable();
+        }
+        if(msg.type==="theme"){
+            if(msg.theme==="black")document.body.classList.add('black-gold');
+            else document.body.classList.remove('black-gold');
+        }
+        if(msg.type==="settings"){
+            // 字体大小仍由控制端控制
+            if(msg.settings.fontSize!==undefined){
+                document.documentElement.style.setProperty('--font-size',msg.settings.fontSize+'px');
+            }
+            // 粒子数量/速度参数兼容（影响星空密度）
+            if(msg.settings.particleCount!==undefined){
+                particleNum=msg.settings.particleCount;
+                initStars();
+            }
+        }
+    };
+    sock.onclose=()=>setTimeout(connect,3000);
+}
+connect();
+
+// ========== 全屏功能 ==========
+const fsBtn = document.getElementById('fsBtn');
+function toggleFullscreen(){
+    if(!document.fullscreenElement){
+        document.documentElement.requestFullscreen().catch(()=>{});
+        fsBtn.textContent = '⛶';
+    }else{
+        document.exitFullscreen();
+    }
+}
+fsBtn.addEventListener('click', toggleFullscreen);
+// F11 快捷键提示已在hover时显示
+document.addEventListener('fullscreenchange', ()=>{
+    if(document.fullscreenElement){
+        fsBtn.textContent = '🗗';
+        fsBtn.title = '退出全屏 (F11 / Esc)';
+        fsBtn.style.opacity = '0';
+        fsBtn.addEventListener('mouseenter', ()=> fsBtn.style.opacity='1');
+        fsBtn.addEventListener('mouseleave', ()=> fsBtn.style.opacity='0');
+    }else{
+        fsBtn.textContent = '⛶';
+        fsBtn.title = '全屏显示 (F11)';
+        fsBtn.style.opacity = '';
+    }
+});
+
+// ========== 浮窗功能 ==========
+const floatWindows = [];
+let floatZIndex = 100;
+let floatIdCounter = 0;
+
+// 从 localStorage 加载已保存的浮窗
+function loadFloatWindows(){
+    try{
+        const saved = JSON.parse(localStorage.getItem('guestFloatWindows') || '[]');
+        saved.forEach(data=>createFloatWindow(data));
+    }catch(e){}
+}
+
+function saveFloatWindows(){
+    const data = floatWindows.map(w=>({
+        id:w.id, x:w.x, y:w.y, title:w.data.title,
+        status:w.data.status, role:w.data.role, name:w.data.name,
+        info:w.data.info, desc:w.data.desc, remark:w.data.remark,
+        top:w.data.top, saved:w.saved, minimized:w.minimized
+    }));
+    localStorage.setItem('guestFloatWindows', JSON.stringify(data));
+}
+
+// 智能解析文本内容，自动填充嘉宾信息
+function smartParse(text){
+    const result = {status:'online', role:'', name:'', info:'', desc:text, remark:'', top:false};
+    if(!text) return result;
+    
+    const lines = text.split(/[\n，,。；;]/).map(s=>s.trim()).filter(s=>s);
+    
+    // 识别角色
+    const roleKeywords = ['投资者','创业者','开发者','技术','产品','运营','设计','投资人','创始人',
+                          'CEO','CTO','产品经理','工程师','程序员','设计师','咨询师','顾问'];
+    for(const kw of roleKeywords){
+        if(text.includes(kw)){ result.role = kw; break; }
+    }
+    if(!result.role){
+        // 试试第一行有没有角色信息
+        for(const line of lines){
+            if(line.length < 10 && /者|师|经理|总监|创始人|CEO|CTO/.test(line)){
+                result.role = line; break;
+            }
+        }
+    }
+    if(!result.role) result.role = '创业者';
+    
+    // 识别名称（姓名/公司名）
+    const namePatterns = [
+        /姓名[：:]\s*(\S+)/,
+        /名称[：:]\s*(\S+)/,
+        /名字[：:]\s*(\S+)/,
+        /我是\s*(\S{2,4})/,
+        /叫\s*(\S{2,4})/,
+    ];
+    for(const p of namePatterns){
+        const m = text.match(p);
+        if(m){ result.name = m[1]; break; }
+    }
+    if(!result.name){
+        // 取第一行短文本当名称
+        for(const line of lines){
+            if(line.length >= 2 && line.length <= 8 && !/[，。、；,.!?]/.test(line)){
+                result.name = line; break;
+            }
+        }
+    }
+    if(!result.name && lines.length > 0) result.name = lines[0].slice(0,8);
+    
+    // 识别地区/个人信息
+    const cityPatterns = [
+        /来自\s*(\S+?)(?:[,，\s]|$)/,
+        /坐标\s*(\S+?)(?:[,，\s]|$)/,
+        /地区[：:]\s*(\S+)/,
+        /所在地[：:]\s*(\S+)/,
+    ];
+    for(const p of cityPatterns){
+        const m = text.match(p);
+        if(m){ result.info = m[1] + '·个人'; break; }
+    }
+    
+    // 识别在线状态
+    if(/离线|不在|忙|休息/.test(text)) result.status = 'offline';
+    
+    // 识别置顶
+    if(/置顶|重要|优先/.test(text)) result.top = true;
+    
+    // 自动生成标题
+    result.title = (result.name || '新嘉宾') + ' - ' + (result.role || '嘉宾');
+    
+    return result;
+}
+
+// 创建浮窗
+function createFloatWindow(initData={}){
+    const id = initData.id || ++floatIdCounter;
+    const data = {
+        title: initData.title || '📝 嘉宾信息登记',
+        status: initData.status || 'online',
+        role: initData.role || '',
+        name: initData.name || '',
+        info: initData.info || '',
+        desc: initData.desc || '',
+        remark: initData.remark || '',
+        top: initData.top || false,
+    };
+    
+    const win = document.createElement('div');
+    win.className = 'float-win' + (initData.saved ? ' saved' : '') + (initData.minimized ? ' minimized' : '');
+    win.style.zIndex = ++floatZIndex;
+    win.style.left = (initData.x || 100 + floatWindows.length * 30) + 'px';
+    win.style.top = (initData.y || 80 + floatWindows.length * 30) + 'px';
+    
+    win.innerHTML = `
+        <div class="float-header">
+            <div class="float-title">${escapeHtml(data.title)}</div>
+            <div class="float-actions">
+                <button class="float-top-btn" title="置顶/层级">⬆</button>
+                <button class="float-min-btn" title="最小化">—</button>
+                <button class="float-edit-btn" title="编辑">✏</button>
+                <button class="float-del-btn" title="删除">✕</button>
+            </div>
+        </div>
+        <div class="float-body">
+            <div class="parse-hint">
+                💡 粘贴聊天内容或自我介绍到描述框，点击「智能解析」自动填充
+            </div>
+            <button class="smart-parse-btn">🧠 智能解析内容</button>
+            <div class="form-item">
+                <label>状态</label>
+                <select class="f-status">
+                    <option value="online">🟢 在线</option>
+                    <option value="offline">🔴 离线</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>角色</label>
+                <input type="text" class="f-role" placeholder="投资者/创业者/开发者..." value="${escapeHtml(data.role)}">
+            </div>
+            <div class="form-item">
+                <label>名称</label>
+                <input type="text" class="f-name" placeholder="姓名或昵称" value="${escapeHtml(data.name)}">
+            </div>
+            <div class="form-item">
+                <label>个人信息</label>
+                <input type="text" class="f-info" placeholder="地区·个人/公司" value="${escapeHtml(data.info)}">
+            </div>
+            <div class="form-item">
+                <label>内容描述</label>
+                <textarea class="f-desc" placeholder="项目介绍、需求描述...">${escapeHtml(data.desc)}</textarea>
+            </div>
+            <div class="form-item">
+                <label>备注</label>
+                <input type="text" class="f-remark" placeholder="其他备注" value="${escapeHtml(data.remark)}">
+            </div>
+            <div class="form-item">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" class="f-top" ${data.top?'checked':''} style="width:auto;">
+                    置顶显示
+                </label>
+            </div>
+        </div>
+        <div class="float-footer">
+            <button class="btn-cancel float-cancel-btn">删除</button>
+            <button class="btn-save float-save-btn">💾 保存</button>
+            <button class="btn-import float-import-btn">📥 导入嘉宾列表</button>
+        </div>
+    `;
+    
+    document.body.appendChild(win);
+    
+    const winObj = {
+        id, element: win, data,
+        x: initData.x || 100 + floatWindows.length * 30,
+        y: initData.y || 80 + floatWindows.length * 30,
+        saved: initData.saved || false,
+        minimized: initData.minimized || false,
+    };
+    floatWindows.push(winObj);
+    
+    // === 拖动功能 ===
+    const header = win.querySelector('.float-header');
+    let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
+    header.addEventListener('mousedown', (e)=>{
+        if(e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        dragOffsetX = e.clientX - winObj.x;
+        dragOffsetY = e.clientY - winObj.y;
+        win.style.zIndex = ++floatZIndex;
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e)=>{
+        if(!isDragging) return;
+        winObj.x = e.clientX - dragOffsetX;
+        winObj.y = e.clientY - dragOffsetY;
+        win.style.left = winObj.x + 'px';
+        win.style.top = winObj.y + 'px';
+    });
+    document.addEventListener('mouseup', ()=>{
+        if(isDragging && winObj.saved) saveFloatWindows();
+        isDragging = false;
+    });
+    
+    // 点击置顶层级
+    win.querySelector('.float-top-btn').addEventListener('click', ()=>{
+        win.style.zIndex = ++floatZIndex;
+    });
+    
+    // 最小化
+    win.querySelector('.float-min-btn').addEventListener('click', ()=>{
+        winObj.minimized = !winObj.minimized;
+        win.classList.toggle('minimized', winObj.minimized);
+        if(winObj.saved) saveFloatWindows();
+    });
+    
+    // 删除
+    win.querySelector('.float-del-btn').addEventListener('click', ()=>{
+        if(!confirm('确定删除这个浮窗吗？')) return;
+        win.remove();
+        const idx = floatWindows.indexOf(winObj);
+        if(idx > -1) floatWindows.splice(idx, 1);
+        saveFloatWindows();
+    });
+    win.querySelector('.float-cancel-btn').addEventListener('click', ()=>{
+        if(!confirm('确定删除这个浮窗吗？')) return;
+        win.remove();
+        const idx = floatWindows.indexOf(winObj);
+        if(idx > -1) floatWindows.splice(idx, 1);
+        saveFloatWindows();
+    });
+    
+    // 编辑按钮（滚动到表单）
+    win.querySelector('.float-edit-btn').addEventListener('click', ()=>{
+        if(winObj.minimized){
+            winObj.minimized = false;
+            win.classList.remove('minimized');
+        }
+        win.querySelector('.f-name').focus();
+    });
+    
+    // 智能解析按钮
+    win.querySelector('.smart-parse-btn').addEventListener('click', ()=>{
+        const desc = win.querySelector('.f-desc').value;
+        if(!desc.trim()){
+            alert('请先在「内容描述」里粘贴或输入嘉宾信息');
+            return;
+        }
+        const parsed = smartParse(desc);
+        win.querySelector('.f-status').value = parsed.status;
+        win.querySelector('.f-role').value = parsed.role;
+        win.querySelector('.f-name').value = parsed.name;
+        win.querySelector('.f-info').value = parsed.info;
+        win.querySelector('.f-remark').value = parsed.remark;
+        win.querySelector('.f-top').checked = parsed.top;
+        // 更新标题
+        const newTitle = (parsed.name || '新嘉宾') + ' - ' + (parsed.role || '嘉宾');
+        win.querySelector('.float-title').textContent = newTitle;
+        winObj.data.title = newTitle;
+    });
+    
+    // 保存按钮
+    win.querySelector('.float-save-btn').addEventListener('click', ()=>{
+        const name = win.querySelector('.f-name').value.trim();
+        const role = win.querySelector('.f-role').value.trim();
+        if(!name){ alert('请填写名称'); return; }
+        if(!role){ alert('请填写角色'); return; }
+        
+        winObj.data.status = win.querySelector('.f-status').value;
+        winObj.data.role = role;
+        winObj.data.name = name;
+        winObj.data.info = win.querySelector('.f-info').value.trim();
+        winObj.data.desc = win.querySelector('.f-desc').value.trim();
+        winObj.data.remark = win.querySelector('.f-remark').value.trim();
+        winObj.data.top = win.querySelector('.f-top').checked;
+        winObj.data.title = name + ' - ' + role;
+        winObj.saved = true;
+        
+        win.classList.add('saved');
+        win.querySelector('.float-title').textContent = winObj.data.title;
+        saveFloatWindows();
+        
+        // 闪烁一下提示成功
+        win.style.boxShadow = '0 0 24px rgba(46,204,113,0.6)';
+        setTimeout(()=>win.style.boxShadow = '', 600);
+    });
+    
+    // 导入到嘉宾列表
+    win.querySelector('.float-import-btn').addEventListener('click', ()=>{
+        const name = win.querySelector('.f-name').value.trim();
+        const role = win.querySelector('.f-role').value.trim();
+        if(!name){ alert('请填写名称'); return; }
+        if(!role){ alert('请填写角色'); return; }
+        
+        const guest = {
+            status: win.querySelector('.f-status').value,
+            role: role,
+            name: name,
+            info: win.querySelector('.f-info').value.trim(),
+            joinTime: new Date().toLocaleString('zh-CN', {
+                year:'numeric', month:'2-digit', day:'2-digit',
+                hour:'2-digit', minute:'2-digit'
+            }).replace(/\//g,'-'),
+            desc: win.querySelector('.f-desc').value.trim(),
+            remark: win.querySelector('.f-remark').value.trim(),
+            top: win.querySelector('.f-top').checked,
+        };
+        
+        // 通过 WebSocket 发送到服务端
+        if(sock && sock.readyState === 1){
+            sock.send(JSON.stringify({
+                type: 'addGuest', data: guest
+            }));
+        }
+        
+        // 同时通过 HTTP API 提交（更可靠）
+        try{
+            fetch('/api/guest/add', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(guest)
+            }).then(r=>r.json()).then(res=>{
+                if(res.code === 0){
+                    win.style.boxShadow = '0 0 24px rgba(46,204,113,0.6)';
+                    setTimeout(()=>win.style.boxShadow = '', 800);
+                }
+            }).catch(()=>{});
+        }catch(e){}
+        
+        // 同时也保存浮窗
+        winObj.saved = true;
+        win.classList.add('saved');
+        saveFloatWindows();
+    });
+    
+    // 点击浮窗置顶显示
+    win.addEventListener('mousedown', ()=>{
+        win.style.zIndex = ++floatZIndex;
+    });
+    
+    return winObj;
+}
+
+// 新建浮窗按钮
+document.getElementById('floatAddBtn').addEventListener('click', ()=>{
+    createFloatWindow({
+        x: Math.floor(window.innerWidth/2 - 180 + Math.random()*60),
+        y: Math.floor(window.innerHeight/2 - 200 + Math.random()*60),
+    });
+});
+
+// 快捷键 N 新建浮窗
+document.addEventListener('keydown', (e)=>{
+    if(e.key === 'n' && !e.target.matches('input,textarea,select')){
+        createFloatWindow({
+            x: Math.floor(window.innerWidth/2 - 180),
+            y: Math.floor(window.innerHeight/2 - 200),
+        });
+    }
+});
+
+// 页面加载时恢复浮窗
+loadFloatWindows();
+</script>
+</body>
+</html>
