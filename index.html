@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>直播嘉宾资源登记 · 上麦嘉宾报名</title>
+<meta name="description" content="直播嘉宾资源看板 - 嘉宾登记表单，填写信息即可加入上麦嘉宾列表，参与项目对接、技术交流、资源整合">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei","PingFang SC",sans-serif;}
+:root{
+    --bg-main:#050816;
+    --bg-gradient:linear-gradient(135deg,#050816 0%,#0a0e27 50%,#0d1333 100%);
+    --panel-bg:rgba(16,24,56,0.72);
+    --panel-border:rgba(64,145,255,0.35);
+    --panel-glow:0 0 24px rgba(40,120,255,0.18),inset 0 1px 0 rgba(100,180,255,0.15);
+    --title:#64b0ff;
+    --title-glow:0 0 12px rgba(100,176,255,0.6);
+    --text:#e8edf7;
+    --text-dim:#8ea4c8;
+    --accent:#4da6ff;
+    --success:#2ecc71;
+    --warning:#f39c12;
+    --danger:#e74c3c;
+    --radius:12px;
+}
+html,body{width:100%;min-height:100vh;}
+body{
+    background:var(--bg-gradient);
+    color:var(--text);
+    font-size:14px;
+    padding:20px;
+    position:relative;
+    overflow-x:hidden;
+}
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+
+.container{
+    position:relative;z-index:1;
+    max-width:720px;
+    margin:0 auto;
+    padding:30px 0;
+}
+
+/* 顶部标题 */
+.header{
+    text-align:center;
+    margin-bottom:30px;
+}
+.header .logo{font-size:42px;margin-bottom:10px;}
+.header h1{
+    font-size:28px;
+    color:var(--title);
+    text-shadow:var(--title-glow);
+    letter-spacing:3px;
+    margin-bottom:8px;
+}
+.header .subtitle{
+    color:var(--text-dim);
+    font-size:14px;
+    letter-spacing:2px;
+}
+.header .badge{
+    display:inline-block;
+    margin-top:12px;
+    padding:4px 16px;
+    border:1px solid var(--accent);
+    border-radius:20px;
+    color:var(--accent);
+    font-size:12px;
+    background:rgba(77,166,255,0.1);
+}
+
+/* 面板 */
+.panel{
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    box-shadow:var(--panel-glow);
+    backdrop-filter:blur(12px);
+    padding:24px 28px;
+    margin-bottom:20px;
+}
+.panel-title{
+    font-size:16px;
+    font-weight:bold;
+    color:var(--title);
+    margin-bottom:16px;
+    letter-spacing:1px;
+    display:flex;align-items:center;gap:8px;
+}
+.panel-title::before{
+    content:'';width:4px;height:16px;
+    background:var(--accent);border-radius:2px;
+    box-shadow:0 0 8px var(--accent);
+}
+
+/* 表单 */
+.form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+}
+.form-item{margin-bottom:4px;}
+.form-item.full{grid-column:1 / -1;}
+.form-item label{
+    display:block;
+    font-size:13px;
+    color:var(--text-dim);
+    margin-bottom:6px;
+    letter-spacing:0.5px;
+}
+.form-item label .req{color:var(--danger);margin-right:3px;}
+.form-item input,
+.form-item select,
+.form-item textarea{
+    width:100%;
+    padding:9px 12px;
+    background:rgba(0,0,0,0.3);
+    border:1px solid var(--panel-border);
+    border-radius:8px;
+    color:var(--text);
+    font-size:13px;
+    font-family:inherit;
+    box-sizing:border-box;
+    outline:none;
+    transition:all 0.3s;
+}
+.form-item input:focus,
+.form-item select:focus,
+.form-item textarea:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 12px rgba(77,166,255,0.3);
+}
+.form-item textarea{
+    min-height:90px;
+    resize:vertical;
+    line-height:1.6;
+}
+.form-item select option{background:#0a0e27;color:var(--text);}
+
+/* 模板提示 */
+.template-box{
+    background:rgba(0,0,0,0.25);
+    border:1px dashed var(--panel-border);
+    border-radius:8px;
+    padding:12px 14px;
+    margin-bottom:16px;
+    font-size:12px;
+    color:var(--text-dim);
+    line-height:1.8;
+}
+.template-box .tpl-title{
+    color:var(--accent);
+    font-weight:bold;
+    margin-bottom:6px;
+    font-size:13px;
+}
+.template-box code{
+    display:block;
+    background:rgba(0,0,0,0.3);
+    padding:8px 10px;
+    border-radius:4px;
+    margin-top:4px;
+    color:var(--text);
+    font-family:Consolas,monospace;
+    font-size:12px;
+    white-space:pre-wrap;
+}
+
+/* 按钮 */
+.btn-row{
+    display:flex;gap:12px;margin-top:20px;
+}
+.btn{
+    flex:1;
+    padding:12px 0;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:bold;
+    cursor:pointer;
+    border:1px solid transparent;
+    transition:all 0.3s;
+    letter-spacing:2px;
+}
+.btn-primary{
+    background:linear-gradient(135deg,var(--accent),rgba(77,166,255,0.3));
+    border-color:var(--accent);
+    color:#fff;
+}
+.btn-primary:hover{box-shadow:0 0 20px var(--title-glow);transform:translateY(-1px);}
+.btn-secondary{
+    background:rgba(255,255,255,0.05);
+    border-color:var(--panel-border);
+    color:var(--text-dim);
+}
+.btn-secondary:hover{background:rgba(255,255,255,0.1);color:var(--text);}
+
+/* 联系方式 */
+.contact-box{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+}
+.contact-item{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 14px;
+    background:rgba(0,0,0,0.25);
+    border-radius:8px;
+    border:1px solid var(--panel-border);
+}
+.contact-item .icon{font-size:22px;}
+.contact-item .info{flex:1;}
+.contact-item .label{font-size:11px;color:var(--text-dim);}
+.contact-item .value{font-size:14px;color:var(--text);font-weight:bold;}
+
+/* 成功提示 */
+.success-panel{
+    text-align:center;
+    padding:40px 20px;
+    display:none;
+}
+.success-panel .icon{
+    font-size:64px;
+    margin-bottom:16px;
+    animation:bounce 1s ease;
+}
+@keyframes bounce{
+    0%,100%{transform:scale(1);}
+    50%{transform:scale(1.15);}
+}
+.success-panel h2{
+    color:var(--success);
+    font-size:22px;
+    margin-bottom:10px;
+}
+.success-panel p{
+    color:var(--text-dim);
+    line-height:1.8;
+    margin-bottom:20px;
+}
+.success-panel.show{display:block;}
+
+/* 页脚 */
+.footer{
+    text-align:center;
+    color:var(--text-dim);
+    font-size:12px;
+    margin-top:30px;
+    opacity:0.7;
+    line-height:1.8;
+}
+.footer a{color:var(--accent);text-decoration:none;}
+
+/* 移动端适配 */
+@media(max-width:600px){
+    .form-grid{grid-template-columns:1fr;}
+    .contact-box{grid-template-columns:1fr;}
+    .header h1{font-size:22px;}
+    .panel{padding:18px;}
+    .btn-row{flex-direction:column;}
+}
+
+/* 滚动条 */
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
+::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div class="logo">🎙</div>
+        <h1>直播嘉宾资源登记</h1>
+        <div class="subtitle">GUEST RESOURCE REGISTRATION</div>
+        <div class="badge">✨ 上麦嘉宾 · 资源对接 · 项目合作</div>
+    </div>
+
+    <!-- 登记表单 -->
+    <div class="panel" id="formPanel">
+        <div class="panel-title">📝 嘉宾信息登记</div>
+
+        <div class="template-box">
+            <div class="tpl-title">💡 填写模板（可直接复制修改）</div>
+            <code>【角色】创业者
+【姓名/昵称】张三
+【地区】北京
+【身份】科技公司创始人
+【项目介绍】专注AI大模型应用开发，已服务500+企业客户
+【需求】寻找技术合伙人、寻求投融资对接
+【备注】希望优先对接技术方向的嘉宾</code>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-item">
+                <label><span class="req">*</span>身份角色</label>
+                <select id="role">
+                    <option value="">请选择您的角色</option>
+                    <option value="投资者">💰 投资者</option>
+                    <option value="创业者">🚀 创业者</option>
+                    <option value="开发者">💻 应用开发者</option>
+                    <option value="技术大拿">🔧 技术大拿</option>
+                    <option value="产品经理">📊 产品经理</option>
+                    <option value="设计师">🎨 设计师</option>
+                    <option value="运营专家">📈 运营专家</option>
+                    <option value="咨询顾问">💼 咨询顾问</option>
+                    <option value="其他">📎 其他</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label><span class="req">*</span>姓名 / 昵称</label>
+                <input type="text" id="name" placeholder="您的姓名或常用昵称">
+            </div>
+            <div class="form-item">
+                <label>所在地区</label>
+                <input type="text" id="city" placeholder="如：北京、上海、深圳">
+            </div>
+            <div class="form-item">
+                <label>身份 / 公司</label>
+                <input type="text" id="company" placeholder="个人身份或公司名称">
+            </div>
+            <div class="form-item full">
+                <label><span class="req">*</span>项目介绍 / 个人简介</label>
+                <textarea id="desc" placeholder="请简要介绍您的项目、产品、技术方向或个人专长..."></textarea>
+            </div>
+            <div class="form-item full">
+                <label>对接需求</label>
+                <textarea id="demand" placeholder="您希望对接什么样的资源？如：投融资、技术合作、人才招聘、渠道对接..."></textarea>
+            </div>
+            <div class="form-item">
+                <label><span class="req">*</span>联系电话</label>
+                <input type="tel" id="phone" placeholder="方便我们联系您">
+            </div>
+            <div class="form-item">
+                <label>微信号</label>
+                <input type="text" id="wechat" placeholder="选填，添加微信沟通">
+            </div>
+            <div class="form-item full">
+                <label>备注信息</label>
+                <input type="text" id="remark" placeholder="其他需要说明的信息">
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn btn-secondary" onclick="fillTemplate()">📋 填充示例</button>
+            <button class="btn btn-primary" onclick="submitForm()">✅ 提交登记</button>
+        </div>
+    </div>
+
+    <!-- 成功提示 -->
+    <div class="panel success-panel" id="successPanel">
+        <div class="icon">🎉</div>
+        <h2>登记成功！</h2>
+        <p>
+            感谢您的报名，我们已收到您的信息。<br>
+            工作人员会在24小时内与您联系确认。<br>
+            请保持电话畅通，期待与您在直播间相见！
+        </p>
+        <!-- 降级提示：当服务器不可达时显示 -->
+        <div id="offlineTip" class="template-box" style="display:none;text-align:left;border-color:#f39c12;background:rgba(243,156,18,0.1);">
+            <div class="tpl-title" style="color:#f39c12;">⚠️ 网络提交未成功，请直接联系管理员</div>
+            <p style="margin-top:6px;">
+                您的信息已在本机保存，但未同步到管理员。<br>
+                为确保报名成功，请任选以下方式直接联系：
+            </p>
+            <p style="margin-top:8px;">📞 <b>电话/微信</b>：18180309010（微信同号，搜索 xunijiayuan）</p>
+            <p>👤 <b>联系人</b>：军哥懂保</p>
+            <p style="margin-top:8px;color:#2ecc71;">✅ 也可点击下方「复制我的信息」按钮，把信息发给管理员微信</p>
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-secondary" onclick="resetForm()">📝 再登记一位</button>
+            <button class="btn btn-secondary" onclick="copyMyInfo()">📋 复制我的信息</button>
+            <button class="btn btn-primary" onclick="copyLink()">🔗 分享给朋友</button>
+        </div>
+    </div>
+
+    <!-- 联系方式 -->
+    <div class="panel">
+        <div class="panel-title">📞 联系我们</div>
+        <div class="contact-box">
+            <div class="contact-item">
+                <div class="icon">📱</div>
+                <div class="info">
+                    <div class="label">联系电话</div>
+                    <div class="value">181-8030-9010</div>
+                </div>
+            </div>
+            <div class="contact-item">
+                <div class="icon">💬</div>
+                <div class="info">
+                    <div class="label">微信号</div>
+                    <div class="value">xunijiayuan</div>
+                </div>
+            </div>
+            <div class="contact-item">
+                <div class="icon">👤</div>
+                <div class="info">
+                    <div class="label">联系人</div>
+                    <div class="value">军哥懂保</div>
+                </div>
+            </div>
+            <div class="contact-item">
+                <div class="icon">⏰</div>
+                <div class="info">
+                    <div class="label">工作时间</div>
+                    <div class="value">9:00 - 22:00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>🎙 直播嘉宾资源看板 v3.0 · 资源整合直播背景应用</p>
+        <p>© 2026 军哥懂保 | 微信：xunijiayuan | 电话：18180309010</p>
+    </div>
+</div>
+
+<script>
+// ========== 粒子背景 ==========
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let w, h, particles = [];
+let particleNum = 60;
+
+function resize(){ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; }
+resize();
+window.addEventListener('resize',resize);
+
+class Particle{
+    constructor(){
+        this.x=Math.random()*w;this.y=Math.random()*h;
+        this.r=Math.random()*1.2+0.4;
+        this.sx=(Math.random()-0.5)*0.5;
+        this.sy=(Math.random()-0.5)*0.5;
+        this.alpha=Math.random()*0.5+0.1;
+    }
+    update(){
+        this.x+=this.sx;this.y+=this.sy;
+        if(this.x<0||this.x>w)this.sx*=-1;
+        if(this.y<0||this.y>h)this.sy*=-1;
+    }
+    draw(){
+        ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+        ctx.fillStyle = `rgba(77,166,255,${this.alpha})`;
+        ctx.fill();
+    }
+}
+for(let i=0;i<particleNum;i++)particles.push(new Particle());
+function animate(){
+    ctx.clearRect(0,0,w,h);
+    // 网格背景
+    ctx.strokeStyle = 'rgba(50,120,220,0.08)';
+    ctx.lineWidth=1;
+    for(let x=0;x<w;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<h;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    particles.forEach(p=>{p.update();p.draw();});
+    requestAnimationFrame(animate);
+}
+animate();
+
+// ========== 表单逻辑 ==========
+function fillTemplate(){
+    document.getElementById('role').value = '创业者';
+    document.getElementById('name').value = '张三';
+    document.getElementById('city').value = '北京';
+    document.getElementById('company').value = '科技公司创始人';
+    document.getElementById('desc').value = '专注AI大模型应用开发，已服务500+企业客户，产品覆盖电商、教育、医疗等多个领域。核心团队来自大厂，技术实力雄厚。';
+    document.getElementById('demand').value = '寻找技术合伙人、种子轮融资、渠道资源对接';
+    document.getElementById('phone').value = '';
+    document.getElementById('wechat').value = '';
+    document.getElementById('remark').value = '希望优先对接技术和投资方向的嘉宾';
+}
+
+function submitForm(){
+    const role = document.getElementById('role').value;
+    const name = document.getElementById('name').value.trim();
+    const desc = document.getElementById('desc').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+
+    if(!role){ alert('请选择您的身份角色'); return; }
+    if(!name){ alert('请填写您的姓名或昵称'); return; }
+    if(!desc){ alert('请填写项目介绍或个人简介'); return; }
+    if(!phone){ alert('请填写联系电话'); return; }
+    if(!/^1[3-9]\d{9}$/.test(phone)){ alert('请输入正确的手机号码'); return; }
+
+    const record = {
+        role, name,
+        city: document.getElementById('city').value.trim(),
+        company: document.getElementById('company').value.trim(),
+        desc,
+        demand: document.getElementById('demand').value.trim(),
+        phone,
+        wechat: document.getElementById('wechat').value.trim(),
+        remark: document.getElementById('remark').value.trim(),
+    };
+
+    // 按钮置为提交中
+    const submitBtn = document.querySelector('.btn-primary');
+    const oldText = submitBtn.textContent;
+    submitBtn.textContent = '⏳ 提交中...';
+    submitBtn.disabled = true;
+
+    // 提交到服务器接口（同源部署时有效）
+    fetch('/api/guest/submit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: JSON.stringify(record)
+    }).then(r => r.json()).then(res => {
+        if(res.code === 0){
+            // 服务器接收成功 —— 数据已进入管理员看板
+            localStorage.setItem('lastSubmitId', res.id); // 记录登记号
+            showSuccess(true);
+        } else {
+            throw new Error(res.msg || '提交失败');
+        }
+    }).catch(err => {
+        // 服务器不可达（如静态部署在 Gitee Pages）—— 降级：本地保存 + 引导联系
+        console.warn('服务器提交失败，启用降级方案:', err);
+        record.time = new Date().toLocaleString('zh-CN');
+        record.id = 'LOCAL' + Date.now();
+        const records = JSON.parse(localStorage.getItem('guestRecords') || '[]');
+        records.push(record);
+        localStorage.setItem('guestRecords', JSON.stringify(records));
+        showSuccess(false);
+    }).finally(()=>{
+        submitBtn.textContent = oldText;
+        submitBtn.disabled = false;
+    });
+}
+
+// showSuccess(serverOk): serverOk=true 走服务器成功，false 走降级引导
+function showSuccess(serverOk){
+    document.getElementById('formPanel').style.display = 'none';
+    const panel = document.getElementById('successPanel');
+    // 根据是否走通服务器显示不同提示
+    const offlineTip = document.getElementById('offlineTip');
+    if(offlineTip) offlineTip.style.display = serverOk ? 'none' : 'block';
+    panel.classList.add('show');
+}
+
+function resetForm(){
+    document.getElementById('formPanel').style.display = 'block';
+    document.getElementById('successPanel').classList.remove('show');
+    document.querySelectorAll('input, textarea, select').forEach(el=>{
+        if(el.type === 'select-one') el.selectedIndex = 0;
+        else el.value = '';
+    });
+}
+
+function copyLink(){
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(()=>{
+        alert('✅ 链接已复制！快分享给有需要的朋友吧~');
+    }).catch(()=>{
+        prompt('复制以下链接分享给朋友：', url);
+    });
+}
+
+// 复制本次填写的信息，方便直接发给管理员微信
+function copyMyInfo(){
+    const role = document.getElementById('role').value;
+    const name = document.getElementById('name').value.trim();
+    const city = document.getElementById('city').value.trim();
+    const company = document.getElementById('company').value.trim();
+    const desc = document.getElementById('desc').value.trim();
+    const demand = document.getElementById('demand').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const wechat = document.getElementById('wechat').value.trim();
+    const remark = document.getElementById('remark').value.trim();
+    const text = [
+        '【直播嘉宾登记】',
+        '角色：' + role,
+        '姓名：' + name,
+        city ? ('地区：' + city) : '',
+        company ? ('身份：' + company) : '',
+        '简介：' + desc,
+        demand ? ('需求：' + demand) : '',
+        '电话：' + phone,
+        wechat ? ('微信：' + wechat) : '',
+        remark ? ('备注：' + remark) : '',
+    ].filter(s=>s).join('\n');
+    navigator.clipboard.writeText(text).then(()=>{
+        alert('✅ 信息已复制！请打开微信搜索 xunijiayuan 粘贴发给管理员');
+    }).catch(()=>{
+        prompt('请复制以下信息发给管理员（微信：xunijiayuan）：', text);
+    });
+}
+</script>
+</body>
+</html>
