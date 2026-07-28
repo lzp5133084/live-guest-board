@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>直播嘉宾资源看板 · 控制端 v3.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei","PingFang SC",sans-serif;}
+:root{
+    --bg-main:#050816;
+    --bg-gradient:linear-gradient(135deg,#050816 0%,#0a0e27 50%,#0d1333 100%);
+    --panel-bg:rgba(16,24,56,0.72);
+    --panel-border:rgba(64,145,255,0.35);
+    --panel-glow:0 0 24px rgba(40,120,255,0.18),inset 0 1px 0 rgba(100,180,255,0.15);
+    --title:#64b0ff;
+    --title-glow:0 0 12px rgba(100,176,255,0.6);
+    --text:#e8edf7;
+    --text-dim:#8ea4c8;
+    --thead-bg:linear-gradient(180deg,rgba(30,70,140,0.55),rgba(20,50,100,0.45));
+    --tr-hover:rgba(45,95,175,0.3);
+    --online-row:rgba(22,130,80,0.28);
+    --offline-row:rgba(140,45,55,0.28);
+    --grid:rgba(50,120,220,0.1);
+    --font-size:14px;
+    --accent:#4da6ff;
+    --accent-hover:#66b5ff;
+    --success:#2ecc71;
+    --warning:#f39c12;
+    --danger:#e74c3c;
+    --radius:12px;
+}
+body.black-gold{
+    --bg-main:#0a0703;
+    --bg-gradient:linear-gradient(135deg,#0a0703 0%,#14100a 50%,#1a150d 100%);
+    --panel-bg:rgba(32,24,14,0.78);
+    --panel-border:rgba(212,164,86,0.42);
+    --panel-glow:0 0 24px rgba(204,148,56,0.2),inset 0 1px 0 rgba(255,210,120,0.18);
+    --title:#ffc873;
+    --title-glow:0 0 12px rgba(255,200,115,0.6);
+    --text:#f5ede0;
+    --text-dim:#c8b89a;
+    --thead-bg:linear-gradient(180deg,rgba(80,60,28,0.55),rgba(55,40,18,0.45));
+    --tr-hover:rgba(100,72,30,0.35);
+    --online-row:rgba(26,100,62,0.28);
+    --offline-row:rgba(120,40,35,0.3);
+    --grid:rgba(172,134,64,0.12);
+    --accent:#d4a046;
+    --accent-hover:#e8b45a;
+}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{
+    background:var(--bg-gradient);
+    color:var(--text);
+    font-size:var(--font-size);
+}
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+.app{position:relative;z-index:1;width:100vw;height:100vh;display:flex;flex-direction:column;padding:16px;gap:12px;}
+
+/* 顶部栏 */
+.topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 20px;
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    box-shadow:var(--panel-glow);
+    backdrop-filter:blur(12px);
+}
+.topbar-left{display:flex;align-items:center;gap:16px;}
+.logo{
+    width:38px;height:38px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),transparent);
+    border:1px solid var(--panel-border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;
+}
+.app-title{
+    font-size:20px;font-weight:bold;color:var(--title);
+    text-shadow:var(--title-glow);
+    letter-spacing:2px;
+}
+.app-subtitle{font-size:12px;color:var(--text-dim);margin-top:2px;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.conn-status{
+    display:flex;align-items:center;gap:6px;
+    padding:5px 12px;border-radius:20px;
+    background:rgba(0,0,0,0.3);
+    border:1px solid var(--panel-border);
+    font-size:12px;
+}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);box-shadow:0 0 8px var(--danger);}
+.conn-dot.online{background:var(--success);box-shadow:0 0 8px var(--success);}
+
+/* 主体三栏 */
+.main{flex:1;display:grid;grid-template-columns:260px 1fr 280px;gap:12px;min-height:0;}
+.panel{
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    box-shadow:var(--panel-glow);
+    backdrop-filter:blur(12px);
+    padding:14px;
+    display:flex;flex-direction:column;
+    min-height:0;
+}
+.panel-title{
+    font-size:15px;color:var(--title);
+    margin-bottom:10px;padding-bottom:8px;
+    border-bottom:1px solid var(--panel-border);
+    display:flex;align-items:center;gap:6px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+.panel-title::before{
+    content:"";width:3px;height:14px;border-radius:2px;
+    background:linear-gradient(180deg,var(--accent),transparent);
+}
+
+/* 左侧 */
+.left-panel p{line-height:2;font-size:13px;margin:2px 0;color:var(--text);}
+.left-panel .sec{margin-bottom:14px;}
+.info-list{display:flex;flex-direction:column;gap:4px;}
+.info-item{
+    display:flex;align-items:center;gap:8px;
+    padding:6px 10px;border-radius:6px;
+    background:rgba(0,0,0,0.2);
+    font-size:12px;
+}
+.info-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+
+/* 主题切换 */
+.theme-switch{display:flex;gap:6px;margin-top:8px;}
+.theme-btn{
+    flex:1;padding:8px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--panel-border);
+    background:rgba(0,0,0,0.3);color:var(--text);
+    font-size:12px;transition:all 0.3s;
+}
+.theme-btn:hover{border-color:var(--accent);transform:translateY(-1px);}
+.theme-btn.active{
+    background:linear-gradient(135deg,var(--accent),rgba(255,255,255,0.1));
+    border-color:var(--accent);
+    color:#fff;
+    box-shadow:0 0 12px rgba(77,166,255,0.4);
+}
+
+/* 滑块 */
+.slider-item{margin:10px 0;}
+.slider-item label{font-size:12px;color:var(--text-dim);display:block;margin-bottom:5px;}
+.slider-item .val{float:right;color:var(--accent);}
+input[type="range"]{
+    width:100%;height:4px;
+    -webkit-appearance:none;
+    background:rgba(255,255,255,0.1);
+    border-radius:2px;outline:none;
+}
+input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:14px;height:14px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+    cursor:pointer;
+}
+
+/* 中间主面板 */
+.center-panel{min-height:0;}
+.toolbar{
+    display:flex;align-items:center;gap:8px;margin-bottom:10px;
+    flex-wrap:wrap;
+}
+.search-box{
+    flex:1;min-width:180px;
+    display:flex;align-items:center;gap:8px;
+    padding:6px 12px;border-radius:8px;
+    background:rgba(0,0,0,0.3);
+    border:1px solid var(--panel-border);
+}
+.search-box input{
+    flex:1;background:transparent;border:none;outline:none;
+    color:var(--text);font-size:13px;
+}
+.search-box input::placeholder{color:var(--text-dim);}
+.filter-select{
+    padding:6px 10px;border-radius:8px;
+    background:rgba(0,0,0,0.3);
+    border:1px solid var(--panel-border);
+    color:var(--text);font-size:12px;outline:none;
+}
+.btn{
+    padding:7px 14px;border:none;border-radius:8px;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),rgba(255,255,255,0.1));
+    color:#fff;font-size:13px;
+    transition:all 0.3s;
+    border:1px solid var(--accent);
+    display:inline-flex;align-items:center;gap:4px;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(77,166,255,0.4);}
+.btn:active{transform:translateY(0);}
+.btn.danger{background:linear-gradient(135deg,var(--danger),rgba(255,255,255,0.1));border-color:var(--danger);}
+.btn.danger:hover{box-shadow:0 4px 16px rgba(231,76,60,0.4);}
+.btn.warning{background:linear-gradient(135deg,var(--warning),rgba(255,255,255,0.1));border-color:var(--warning);}
+.btn.warning:hover{box-shadow:0 4px 16px rgba(243,156,18,0.4);}
+.btn.small{padding:5px 10px;font-size:12px;}
+
+.table-wrap{flex:1;overflow:auto;border-radius:8px;border:1px solid var(--panel-border);}
+table{width:100%;border-collapse:collapse;font-size:var(--font-size);}
+th,td{border:1px solid var(--panel-border);padding:10px 12px;text-align:left;}
+th{
+    background:var(--thead-bg);
+    color:var(--title);
+    position:sticky;top:0;z-index:1;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+tr:hover{background:var(--tr-hover);}
+tr.online{background:var(--online-row);}
+tr.offline{background:var(--offline-row);}
+tr.top-row{outline:2px solid var(--warning);outline-offset:-2px;}
+
+.status-tag{
+    display:inline-block;padding:3px 10px;border-radius:12px;
+    font-size:11px;font-weight:bold;
+}
+.tag-online{background:rgba(46,204,113,0.25);color:#2ecc71;border:1px solid rgba(46,204,113,0.4);}
+.tag-offline{background:rgba(231,76,60,0.25);color:#e74c3c;border:1px solid rgba(231,76,60,0.4);}
+
+.row-actions{display:flex;gap:4px;}
+.row-actions button{
+    padding:4px 8px;border-radius:5px;border:1px solid var(--panel-border);
+    background:rgba(0,0,0,0.3);color:var(--text);cursor:pointer;font-size:11px;
+    transition:all 0.2s;
+}
+.row-actions button:hover{border-color:var(--accent);color:var(--accent);}
+.row-actions button.del:hover{border-color:var(--danger);color:var(--danger);}
+.row-actions button.top:hover{border-color:var(--warning);color:var(--warning);}
+
+.stats-bar{
+    margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;
+    padding:8px 12px;border-radius:8px;
+    background:rgba(0,0,0,0.25);
+    border:1px solid var(--panel-border);
+}
+.stat-item{font-size:12px;color:var(--text-dim);}
+.stat-item b{color:var(--accent);font-size:14px;margin:0 3px;}
+
+/* 右侧面板 */
+.right-panel .archive-list{
+    flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px;
+    margin-top:6px;
+}
+.archive-item{
+    padding:8px 10px;border-radius:8px;
+    background:rgba(0,0,0,0.3);
+    border:1px solid var(--panel-border);
+    cursor:pointer;transition:all 0.2s;
+    font-size:12px;
+}
+.archive-item:hover{border-color:var(--accent);transform:translateX(3px);}
+.archive-item .name{color:var(--text);font-weight:bold;margin-bottom:3px;}
+.archive-item .meta{color:var(--text-dim);font-size:11px;display:flex;justify-content:space-between;}
+.archive-item .actions{display:flex;gap:4px;margin-top:5px;}
+.archive-item .actions button{
+    padding:3px 8px;font-size:11px;border-radius:5px;
+    border:1px solid var(--panel-border);
+    background:rgba(0,0,0,0.3);color:var(--text);
+    cursor:pointer;
+}
+.archive-item .actions button:hover{border-color:var(--accent);color:var(--accent);}
+.archive-item .actions button.del:hover{border-color:var(--danger);color:var(--danger);}
+
+/* 弹窗 */
+.modal-mask{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+    z-index:100;align-items:center;justify-content:center;
+}
+.modal-mask.show{display:flex;animation:fadeIn 0.2s;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{
+    width:520px;max-height:85vh;overflow:auto;
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    box-shadow:var(--panel-glow),0 20px 60px rgba(0,0,0,0.5);
+    backdrop-filter:blur(20px);
+    padding:24px;
+    animation:slideUp 0.3s;
+}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-box h3{
+    color:var(--title);margin-bottom:18px;
+    font-size:18px;letter-spacing:2px;
+    padding-bottom:10px;border-bottom:1px solid var(--panel-border);
+}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-item{margin-bottom:12px;}
+.form-item.full{grid-column:1/-1;}
+.form-item label{display:block;margin-bottom:5px;font-size:12px;color:var(--text-dim);}
+.form-item input,.form-item textarea,.form-item select{
+    width:100%;padding:8px 12px;
+    background:rgba(0,0,0,0.3);
+    border:1px solid var(--panel-border);
+    color:var(--text);border-radius:6px;
+    font-size:13px;outline:none;
+    transition:border-color 0.2s;
+}
+.form-item input:focus,.form-item textarea:focus,.form-item select:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 8px rgba(77,166,255,0.3);
+}
+.form-item textarea{resize:vertical;min-height:70px;}
+.modal-actions{
+    margin-top:20px;display:flex;justify-content:flex-end;gap:8px;
+    padding-top:14px;border-top:1px solid var(--panel-border);
+}
+
+/* 滚动条 */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
+::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+
+/* 提示条 */
+.toast{
+    position:fixed;top:20px;left:50%;transform:translateX(-50%);
+    padding:10px 20px;border-radius:8px;
+    background:var(--panel-bg);border:1px solid var(--accent);
+    color:var(--text);font-size:13px;z-index:200;
+    box-shadow:var(--panel-glow);
+    opacity:0;transition:all 0.3s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(10px);}
+.toast.success{border-color:var(--success);}
+.toast.error{border-color:var(--danger);}
+
+/* ===== 嘉宾登记管理按钮和弹窗 ===== */
+.reg-btn{position:relative;}
+.reg-badge{
+    display:inline-block;min-width:18px;height:18px;line-height:18px;
+    background:#e74c3c;color:#fff;border-radius:9px;font-size:11px;
+    padding:0 5px;margin-left:4px;font-weight:bold;
+    box-shadow:0 0 6px rgba(231,76,60,0.6);
+    animation:regPulse 1.5s infinite;
+}
+@keyframes regPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.15);}}
+.reg-modal{position:fixed;top:0;left:0;width:100%;height:100%;z-index:200;
+    background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity 0.3s;}
+.reg-modal.show{opacity:1;pointer-events:auto;}
+.reg-box{
+    width:90%;max-width:880px;max-height:85vh;
+    background:var(--panel-bg);border:1px solid var(--panel-border);
+    border-radius:14px;box-shadow:var(--panel-glow);
+    backdrop-filter:blur(14px);
+    display:flex;flex-direction:column;overflow:hidden;
+}
+.reg-box .reg-header{
+    padding:14px 20px;border-bottom:1px solid var(--panel-border);
+    display:flex;align-items:center;justify-content:space-between;
+    background:rgba(0,0,0,0.25);
+}
+.reg-box .reg-header h3{color:var(--title);font-size:16px;letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.reg-box .reg-header .reg-count{color:var(--text-dim);font-size:13px;margin-left:10px;}
+.reg-box .reg-header .reg-close{background:transparent;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;width:30px;height:30px;border-radius:6px;}
+.reg-box .reg-header .reg-close:hover{background:rgba(231,76,60,0.3);color:#fff;}
+.reg-box .reg-toolbar{padding:10px 20px;display:flex;gap:8px;border-bottom:1px solid var(--panel-border);flex-wrap:wrap;}
+.reg-box .reg-toolbar .reg-tip{font-size:12px;color:var(--text-dim);line-height:30px;flex:1;}
+.reg-box .reg-toolbar .btn{height:30px;padding:0 12px;font-size:12px;}
+.reg-box .reg-list{flex:1;overflow-y:auto;padding:10px 20px;}
+.reg-card{
+    background:rgba(0,0,0,0.25);border:1px solid var(--panel-border);
+    border-radius:10px;padding:12px 14px;margin-bottom:10px;
+    transition:all 0.25s;
+}
+.reg-card:hover{border-color:var(--accent);box-shadow:0 0 12px rgba(77,166,255,0.2);}
+.reg-card.imported{opacity:0.55;border-style:dashed;}
+.reg-card-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.reg-card-head .reg-name{font-size:15px;font-weight:bold;color:var(--title);}
+.reg-card-head .reg-role{font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(77,166,255,0.2);color:var(--accent);border:1px solid var(--panel-border);}
+.reg-card-head .reg-status{font-size:11px;padding:2px 8px;border-radius:10px;margin-left:auto;}
+.reg-card-head .reg-status.pending{background:rgba(243,156,18,0.2);color:#f39c12;border:1px solid rgba(243,156,18,0.4);}
+.reg-card-head .reg-status.imported{background:rgba(46,204,113,0.2);color:#2ecc71;border:1px solid rgba(46,204,113,0.4);}
+.reg-card-body{font-size:12px;color:var(--text-dim);line-height:1.8;}
+.reg-card-body .row{display:flex;gap:6px;}
+.reg-card-body .row .lbl{color:var(--text-dim);min-width:50px;}
+.reg-card-body .row .val{color:var(--text);flex:1;word-break:break-all;}
+.reg-card-foot{display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--panel-border);}
+.reg-card-foot .btn{height:28px;padding:0 10px;font-size:12px;}
+.reg-empty{text-align:center;padding:40px 20px;color:var(--text-dim);}
+.reg-empty .icon{font-size:48px;margin-bottom:12px;opacity:0.5;}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+<div class="app">
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="logo">🎙</div>
+            <div>
+                <div class="app-title">直播嘉宾资源看板</div>
+                <div class="app-subtitle">Live Guest Resource Dashboard v3.0 · 控制端</div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <div class="conn-status" id="connStatus">
+                <span class="conn-dot" id="connDot"></span>
+                <span id="connText">连接中...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="panel left-panel">
+            <div class="sec">
+                <div class="panel-title">直播间参与群体</div>
+                <div class="info-list">
+                    <div class="info-item"><span class="info-dot"></span>投资者 ｜ 寻找优质项目</div>
+                    <div class="info-item"><span class="info-dot"></span>创业者 ｜ 自有项目寻求合作</div>
+                    <div class="info-item"><span class="info-dot"></span>应用开发者 ｜ 落地解决方案</div>
+                    <div class="info-item"><span class="info-dot"></span>技术求解者 ｜ 寻求技术对接</div>
+                    <div class="info-item"><span class="info-dot"></span>大咖嘉宾（在线/离线）</div>
+                    <div class="info-item"><span class="info-dot"></span>技术大拿（在线/离线）</div>
+                </div>
+            </div>
+            <div class="sec">
+                <div class="panel-title">对接方向</div>
+                <div class="info-item"><span class="info-dot"></span>项目合作 ｜ 技术对接 ｜ 领域交流</div>
+            </div>
+            <div class="sec">
+                <div class="panel-title">主题风格</div>
+                <div class="theme-switch">
+                    <button class="theme-btn active" data-theme="blue">🔵 蓝科技</button>
+                    <button class="theme-btn" data-theme="black">🟡 黑金商务</button>
+                </div>
+            </div>
+            <div class="sec">
+                <div class="panel-title">动态背景</div>
+                <div class="slider-item">
+                    <label>粒子数量<span class="val" id="particleCountVal">90</span></label>
+                    <input type="range" id="particleCountSlider" min="20" max="200" value="90">
+                </div>
+                <div class="slider-item">
+                    <label>移动速度<span class="val" id="speedVal">0.6</span></label>
+                    <input type="range" id="speedSlider" min="0.1" max="2.0" step="0.1" value="0.6">
+                </div>
+            </div>
+            <div class="sec">
+                <div class="panel-title">显示设置</div>
+                <div class="slider-item">
+                    <label>表格字体<span class="val" id="fontVal">14</span>px</label>
+                    <input type="range" id="fontSlider" min="11" max="20" value="14">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel center-panel">
+            <div class="panel-title">上麦嘉宾资源列表 · 控制端</div>
+            <div class="toolbar">
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" id="searchInput" placeholder="搜索名称/角色/描述...">
+                </div>
+                <select class="filter-select" id="statusFilter">
+                    <option value="all">全部状态</option>
+                    <option value="online">仅在线</option>
+                    <option value="offline">仅离线</option>
+                </select>
+                <select class="filter-select" id="roleFilter">
+                    <option value="all">全部角色</option>
+                </select>
+                <button class="btn" id="addBtn">➕ 添加</button>
+                <button class="btn reg-btn" id="regBtn" title="查看嘉宾登记网站的报名记录">📨 嘉宾登记 <span class="reg-badge" id="regBadge" style="display:none">0</span></button>
+                <button class="btn warning" id="exportCsv">📥 导出CSV</button>
+                <button class="btn danger" id="clearAllBtn">🗑 清空</button>
+            </div>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th width="80">状态</th>
+                            <th width="100">角色</th>
+                            <th width="100">名称</th>
+                            <th width="140">个人信息</th>
+                            <th width="140">入场时间</th>
+                            <th>内容描述</th>
+                            <th width="100">备注</th>
+                            <th width="140">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="stats-bar">
+                <div class="stat-item">总计 <b id="statTotal">0</b> 人</div>
+                <div class="stat-item">在线 <b id="statOnline" style="color:#2ecc71">0</b> 人</div>
+                <div class="stat-item">离线 <b id="statOffline" style="color:#e74c3c">0</b> 人</div>
+                <div class="stat-item">置顶 <b id="statTop" style="color:#f39c12">0</b> 人</div>
+            </div>
+        </div>
+
+        <div class="panel right-panel">
+            <div class="panel-title">上麦自我介绍规则</div>
+            <div class="info-list" style="margin-bottom:16px">
+                <div class="info-item">⏱ 时长控制在5分钟以内</div>
+                <div class="info-item">📍 当前所在地</div>
+                <div class="info-item">🏢 身份：个人 / 公司</div>
+                <div class="info-item">🎯 重点关注领域</div>
+                <div class="info-item">📅 入场时间自动记录</div>
+                <div class="info-item">🤝 对接：项目｜技术｜行业</div>
+            </div>
+
+            <div class="panel-title">存档管理</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px;">
+                <button class="btn small" id="saveArchiveBtn" style="flex:1">💾 保存存档</button>
+                <button class="btn small warning" id="refreshArchiveBtn">🔄</button>
+            </div>
+            <div class="archive-list" id="archiveList">
+                <div style="text-align:center;color:var(--text-dim);padding:20px;font-size:12px;">暂无存档</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-mask" id="guestModal">
+    <div class="modal-box">
+        <h3 id="modalTitle">新增嘉宾信息</h3>
+        <div class="form-grid">
+            <div class="form-item">
+                <label>在线状态</label>
+                <select id="f_status">
+                    <option value="online">在线</option>
+                    <option value="offline">离线</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>角色</label>
+                <input type="text" id="f_role" placeholder="投资者/创业者/开发者">
+            </div>
+            <div class="form-item">
+                <label>名称</label>
+                <input type="text" id="f_name" placeholder="姓名/昵称">
+            </div>
+            <div class="form-item">
+                <label>个人信息</label>
+                <input type="text" id="f_info" placeholder="地区、个人/企业">
+            </div>
+            <div class="form-item full">
+                <label>入场时间</label>
+                <input type="text" id="f_joinTime">
+            </div>
+            <div class="form-item full">
+                <label>内容描述（项目、需求）</label>
+                <textarea id="f_desc" rows="3"></textarea>
+            </div>
+            <div class="form-item full">
+                <label>备注</label>
+                <input type="text" id="f_remark" placeholder="其他备注信息">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn danger" id="cancelBtn">取消</button>
+            <button class="btn" id="saveBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 嘉宾登记管理弹窗 -->
+<div class="reg-modal" id="regModal">
+    <div class="reg-box">
+        <div class="reg-header">
+            <h3>📨 嘉宾登记管理 <span class="reg-count" id="regModalCount">共 0 条</span></h3>
+            <button class="reg-close" id="regCloseBtn">✕</button>
+        </div>
+        <div class="reg-toolbar">
+            <div class="reg-tip">💡 来自嘉宾登记网站的报名记录。点击「导入看板」可将该嘉宾添加到上麦嘉宾列表。</div>
+            <button class="btn" id="regRefreshBtn">🔄 刷新</button>
+            <button class="btn warning" id="regExportBtn">📥 导出全部</button>
+        </div>
+        <div class="reg-list" id="regList">
+            <div class="reg-empty"><div class="icon">📭</div>暂无登记记录</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== 粒子背景 ==========
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let w, h, particles = [];
+let particleNum = 90;
+let particleSpeed = 0.6;
+
+function resize(){ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; }
+resize();
+window.addEventListener('resize',resize);
+
+class Particle{
+    constructor(){
+        this.x=Math.random()*w;this.y=Math.random()*h;
+        this.r=Math.random()*1.2+0.4;
+        this.sx=(Math.random()-0.5)*particleSpeed;
+        this.sy=(Math.random()-0.5)*particleSpeed;
+        this.alpha=Math.random()*0.5+0.1;
+    }
+    update(){
+        this.x+=this.sx;this.y+=this.sy;
+        if(this.x<0||this.x>w)this.sx*=-1;
+        if(this.y<0||this.y>h)this.sy*=-1;
+    }
+    draw(){
+        ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+        const color = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+        ctx.fillStyle = color.replace(')', `,${this.alpha})`).replace('rgb','rgba');
+        ctx.fill();
+    }
+}
+function initParticle(){
+    particles=[];
+    for(let i=0;i<particleNum;i++)particles.push(new Particle());
+}
+initParticle();
+function animate(){
+    ctx.clearRect(0,0,w,h);
+    const gridColor = getComputedStyle(document.body).getPropertyValue('--grid').trim();
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth=1;
+    for(let x=0;x<w;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<h;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    particles.forEach(p=>{p.update();p.draw();});
+    requestAnimationFrame(animate);
+}
+animate();
+
+// 滑块事件
+document.getElementById('particleCountSlider').oninput=function(){
+    particleNum=Number(this.value);
+    document.getElementById('particleCountVal').textContent=this.value;
+    initParticle();
+    broadcastSettings();
+};
+document.getElementById('speedSlider').oninput=function(){
+    particleSpeed=Number(this.value);
+    document.getElementById('speedVal').textContent=this.value;
+    particles.forEach(p=>{p.sx=(Math.random()-0.5)*particleSpeed;p.sy=(Math.random()-0.5)*particleSpeed;});
+    broadcastSettings();
+};
+document.getElementById('fontSlider').oninput=function(){
+    document.documentElement.style.setProperty('--font-size',this.value+'px');
+    document.getElementById('fontVal').textContent=this.value;
+    broadcastSettings();
+};
+
+// ========== WebSocket ==========
+const WS_URL = "ws://" + window.location.hostname + ":8086";
+let socket;
+let dataList = [];
+let archiveList = [];
+let editIndex = null;
+
+const $ = id=>document.getElementById(id);
+
+function showToast(msg, type=''){
+    const t=$('toast');
+    t.textContent=msg;
+    t.className='toast show '+type;
+    setTimeout(()=>{t.className='toast '+type;},2000);
+}
+
+function connectSocket(){
+    socket = new WebSocket(WS_URL);
+    socket.onopen = ()=>{
+        $('connDot').classList.add('online');
+        $('connText').textContent='已连接';
+        console.log("同步连接成功");
+        sendMsg({type:"listArchives"});
+    };
+    socket.onclose = ()=>{
+        $('connDot').classList.remove('online');
+        $('connText').textContent='连接断开';
+        console.log("连接断开，3秒重连");
+        setTimeout(connectSocket,3000);
+    };
+    socket.onerror = ()=>{
+        $('connDot').classList.remove('online');
+        $('connText').textContent='连接失败';
+    };
+    socket.onmessage = (ev)=>{
+        const msg = JSON.parse(ev.data);
+        if(msg.type==="init"||msg.type==="data"){
+            dataList=msg.data;renderTable();updateRoleFilter();
+        }
+        if(msg.type==="theme")setTheme(msg.theme,false);
+        if(msg.type==="settings")applySettings(msg.settings,false);
+        if(msg.type==="archiveList"){archiveList=msg.list;renderArchives();}
+        if(msg.type==="archiveSaved"){archiveList=msg.list;renderArchives();showToast('存档已保存','success');}
+        if(msg.type==="archiveLoaded"){
+            archiveList=msg.list;renderArchives();
+            if(msg.success)showToast('存档已加载','success');
+            else showToast('加载失败: '+msg.error,'error');
+        }
+        if(msg.type==="archiveDeleted"){archiveList=msg.list;renderArchives();showToast('存档已删除','success');}
+        // 嘉宾登记通知
+        if(msg.type==="newRegistration"){
+            regTotalCount = msg.total || 0;
+            updateRegBadge();
+            showToast(`📨 新登记：${(msg.data||{}).name||''} - ${(msg.data||{}).role||''}`, 'success');
+            // 如果登记弹窗开着，刷新列表
+            if($('regModal').classList.contains('show')) loadRegistrations();
+        }
+        if(msg.type==="registrationDeleted"){
+            regTotalCount = msg.total || 0;
+            updateRegBadge();
+            if($('regModal').classList.contains('show')) loadRegistrations();
+        }
+    };
+}
+connectSocket();
+
+function sendMsg(obj){
+    if(socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify(obj));
+}
+function broadcastData(){sendMsg({type:"updateData",list:dataList});}
+function broadcastTheme(theme){sendMsg({type:"setTheme",theme});}
+function broadcastSettings(){
+    sendMsg({type:"updateSettings",settings:{particleCount:particleNum,particleSpeed:particleSpeed,fontSize:Number(document.getElementById('fontSlider').value)}});
+}
+
+// ========== 主题 ==========
+function setTheme(mode,send=true){
+    if(mode==="black")document.body.classList.add('black-gold');
+    else document.body.classList.remove('black-gold');
+    document.querySelectorAll('.theme-btn').forEach(b=>{
+        b.classList.toggle('active',b.dataset.theme===mode);
+    });
+    if(send)broadcastTheme(mode);
+}
+document.querySelectorAll('.theme-btn').forEach(b=>{
+    b.onclick=()=>setTheme(b.dataset.theme);
+});
+
+function applySettings(s,send=false){
+    if(s.particleCount!==undefined){
+        particleNum=s.particleCount;
+        $('particleCountSlider').value=s.particleCount;
+        $('particleCountVal').textContent=s.particleCount;
+        initParticle();
+    }
+    if(s.particleSpeed!==undefined){
+        particleSpeed=s.particleSpeed;
+        $('speedSlider').value=s.particleSpeed;
+        $('speedVal').textContent=s.particleSpeed;
+    }
+    if(s.fontSize!==undefined){
+        document.documentElement.style.setProperty('--font-size',s.fontSize+'px');
+        $('fontSlider').value=s.fontSize;
+        $('fontVal').textContent=s.fontSize;
+    }
+}
+
+// ========== 表格渲染 ==========
+let searchKeyword = '';
+let statusFilter = 'all';
+let roleFilter = 'all';
+
+$('searchInput').oninput=function(){searchKeyword=this.value.trim().toLowerCase();renderTable();};
+$('statusFilter').onchange=function(){statusFilter=this.value;renderTable();};
+$('roleFilter').onchange=function(){roleFilter=this.value;renderTable();};
+
+function updateRoleFilter(){
+    const roles = [...new Set(dataList.map(d=>d.role).filter(Boolean))];
+    const sel = $('roleFilter');
+    sel.innerHTML='<option value="all">全部角色</option>' + roles.map(r=>`<option value="${r}">${r}</option>`).join('');
+}
+
+function getFilteredList(){
+    return dataList.filter(item=>{
+        if(statusFilter!=='all' && item.status!==statusFilter)return false;
+        if(roleFilter!=='all' && item.role!==roleFilter)return false;
+        if(searchKeyword){
+            const text = (item.name+item.role+item.desc+item.info+item.remark).toLowerCase();
+            if(!text.includes(searchKeyword))return false;
+        }
+        return true;
+    });
+}
+
+function renderTable(){
+    const tbody=$('tableBody');
+    tbody.innerHTML="";
+    const list = getFilteredList();
+    const topItems = list.filter(i=>i.top===true);
+    const normalItems = list.filter(i=>!i.top);
+    const showList = [...topItems,...normalItems];
+
+    showList.forEach(item=>{
+        const realIndex = dataList.findIndex(d=>d===item);
+        const tr=document.createElement('tr');
+        tr.className=item.status+(item.top?' top-row':'');
+        tr.innerHTML=`
+            <td><span class="status-tag ${item.status==='online'?'tag-online':'tag-offline'}">
+                ${item.status==='online'?'在线':'离线'}
+            </span></td>
+            <td>${escapeHtml(item.role)}</td>
+            <td><b>${escapeHtml(item.name)}</b></td>
+            <td>${escapeHtml(item.info)}</td>
+            <td style="font-size:12px;color:var(--text-dim)">${escapeHtml(item.joinTime)}</td>
+            <td style="font-size:12px;">${escapeHtml(item.desc)}</td>
+            <td style="font-size:12px;color:var(--text-dim)">${escapeHtml(item.remark)}</td>
+            <td>
+                <div class="row-actions">
+                    <button onclick="openEdit(${realIndex})">✏️ 编辑</button>
+                    <button class="top" onclick="toggleTop(${realIndex})">${item.top?'⬇ 取消':'⬆ 置顶'}</button>
+                    <button class="del" onclick="delItem(${realIndex})">🗑 删除</button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // 更新统计
+    const online=dataList.filter(d=>d.status==='online').length;
+    const offline=dataList.length-online;
+    const top=dataList.filter(d=>d.top).length;
+    $('statTotal').textContent=dataList.length;
+    $('statOnline').textContent=online;
+    $('statOffline').textContent=offline;
+    $('statTop').textContent=top;
+}
+
+function escapeHtml(s){
+    if(!s)return'';
+    return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+window.toggleTop=function(idx){
+    dataList[idx].top=!dataList[idx].top;
+    broadcastData();renderTable();
+};
+
+// ========== CRUD ==========
+function getNowTime(){
+    const d=new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+$('addBtn').onclick=()=>{
+    editIndex=null;$('modalTitle').textContent='➕ 新增嘉宾信息';clearForm();
+    $('f_joinTime').value=getNowTime();
+    $('guestModal').classList.add('show');
+};
+$('cancelBtn').onclick=()=>$('guestModal').classList.remove('show');
+$('guestModal').onclick=e=>{if(e.target.id==='guestModal')$('guestModal').classList.remove('show');};
+
+function clearForm(){
+    $('f_status').value='online';
+    $('f_role').value='';
+    $('f_name').value='';
+    $('f_info').value='';
+    $('f_joinTime').value='';
+    $('f_desc').value='';
+    $('f_remark').value='';
+}
+
+window.openEdit=function(idx){
+    editIndex=idx;$('modalTitle').textContent='✏️ 编辑嘉宾信息';
+    const d=dataList[idx];
+    $('f_status').value=d.status;
+    $('f_role').value=d.role||'';
+    $('f_name').value=d.name||'';
+    $('f_info').value=d.info||'';
+    $('f_joinTime').value=d.joinTime||'';
+    $('f_desc').value=d.desc||'';
+    $('f_remark').value=d.remark||'';
+    $('guestModal').classList.add('show');
+};
+
+window.delItem=function(idx){
+    if(!confirm(`确定删除 "${dataList[idx].name}" 吗？`))return;
+    dataList.splice(idx,1);broadcastData();renderTable();
+    showToast('已删除','success');
+};
+
+$('saveBtn').onclick=()=>{
+    const row={
+        status:$('f_status').value,
+        role:$('f_role').value.trim(),
+        name:$('f_name').value.trim(),
+        info:$('f_info').value.trim(),
+        joinTime:$('f_joinTime').value.trim(),
+        desc:$('f_desc').value.trim(),
+        remark:$('f_remark').value.trim(),
+        top:false
+    };
+    if(!row.role||!row.name){showToast('角色和名称不能为空！','error');return;}
+    if(editIndex===null){
+        dataList.push(row);
+        showToast('添加成功','success');
+    }else{
+        row.top=dataList[editIndex].top;
+        dataList[editIndex]=row;
+        showToast('修改成功','success');
+    }
+    broadcastData();renderTable();updateRoleFilter();
+    $('guestModal').classList.remove('show');
+};
+
+$('clearAllBtn').onclick=()=>{
+    if(!confirm('确定清空全部嘉宾数据？此操作不可撤销！'))return;
+    dataList=[];broadcastData();renderTable();updateRoleFilter();
+    showToast('已清空','success');
+};
+
+// ========== CSV导出 ==========
+$('exportCsv').onclick=()=>{
+    let csv="\uFEFF状态,角色,名称,个人信息,入场时间,内容描述,备注,是否置顶\n";
+    dataList.forEach(item=>{
+        const s=item.status==="online"?"在线":"离线";
+        csv += `"${s}","${escapeCsv(item.role)}","${escapeCsv(item.name)}","${escapeCsv(item.info)}","${escapeCsv(item.joinTime)}","${escapeCsv(item.desc)}","${escapeCsv(item.remark)}","${item.top?'是':'否'}"\n`;
+    });
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`直播嘉宾名单_${new Date().toLocaleDateString()}.csv`;
+    a.click();
+    showToast('导出成功','success');
+};
+function escapeCsv(s){if(!s)return'';return String(s).replace(/"/g,'""');}
+
+// ========== 存档管理 ==========
+function renderArchives(){
+    const box=$('archiveList');
+    if(!archiveList||!archiveList.length){
+        box.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:20px;font-size:12px;">暂无存档</div>';
+        return;
+    }
+    box.innerHTML=archiveList.map(a=>`
+        <div class="archive-item">
+            <div class="name">📁 ${escapeHtml(a.name)}</div>
+            <div class="meta">
+                <span>${new Date(a.mtime).toLocaleString()}</span>
+                <span>${(a.size/1024).toFixed(1)}KB</span>
+            </div>
+            <div class="actions">
+                <button onclick="loadArchive('${escapeHtml(a.name)}')">📂 加载</button>
+                <button class="del" onclick="deleteArchive('${escapeHtml(a.name)}')">🗑 删除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+$('saveArchiveBtn').onclick=()=>{
+    const name=prompt('请输入存档名称：', `直播存档_${new Date().toLocaleDateString().replace(/\//g,'-')}`);
+    if(!name)return;
+    sendMsg({type:"saveArchive",name});
+};
+$('refreshArchiveBtn').onclick=()=>sendMsg({type:"listArchives"});
+
+window.loadArchive=function(name){
+    if(!confirm(`确定加载存档 "${name}"？当前数据将被覆盖。`))return;
+    sendMsg({type:"loadArchive",name});
+};
+window.deleteArchive=function(name){
+    if(!confirm(`确定删除存档 "${name}"？`))return;
+    sendMsg({type:"deleteArchive",name});
+};
+
+// ========== 嘉宾登记管理 ==========
+let regTotalCount = 0;          // 登记总数（来自服务端推送）
+let regListData = [];           // 当前显示的登记列表
+
+function updateRegBadge(){
+    const badge = $('regBadge');
+    if(regTotalCount > 0){
+        badge.textContent = regTotalCount;
+        badge.style.display = 'inline-block';
+    }else{
+        badge.style.display = 'none';
+    }
+}
+
+// 拉取登记列表
+function loadRegistrations(){
+    fetch('/api/registrations').then(r=>r.json()).then(res=>{
+        if(res.code === 0){
+            regListData = res.data || [];
+            regTotalCount = res.total || regListData.length;
+            updateRegBadge();
+            renderRegList();
+        }
+    }).catch(err=>{
+        showToast('加载登记列表失败', 'error');
+    });
+}
+
+function renderRegList(){
+    const box = $('regList');
+    $('regModalCount').textContent = `共 ${regListData.length} 条`;
+    if(!regListData.length){
+        box.innerHTML = '<div class="reg-empty"><div class="icon">📭</div>暂无登记记录<br><span style="font-size:12px">分享登记链接给嘉宾，他们提交后会出现在这里</span></div>';
+        return;
+    }
+    box.innerHTML = regListData.map(r=>`
+        <div class="reg-card ${r.status==='imported'?'imported':''}">
+            <div class="reg-card-head">
+                <span class="reg-name">${escapeHtml(r.name||'')}</span>
+                <span class="reg-role">${escapeHtml(r.role||'')}</span>
+                <span class="reg-status ${r.status||'pending'}">${r.status==='imported'?'✓ 已导入':'⏳ 待处理'}</span>
+            </div>
+            <div class="reg-card-body">
+                ${r.city?`<div class="row"><span class="lbl">地区：</span><span class="val">${escapeHtml(r.city)}</span></div>`:''}
+                ${r.company?`<div class="row"><span class="lbl">身份：</span><span class="val">${escapeHtml(r.company)}</span></div>`:''}
+                ${r.desc?`<div class="row"><span class="lbl">简介：</span><span class="val">${escapeHtml(r.desc)}</span></div>`:''}
+                ${r.demand?`<div class="row"><span class="lbl">需求：</span><span class="val">${escapeHtml(r.demand)}</span></div>`:''}
+                <div class="row"><span class="lbl">电话：</span><span class="val">${escapeHtml(r.phone||'')}</span></div>
+                ${r.wechat?`<div class="row"><span class="lbl">微信：</span><span class="val">${escapeHtml(r.wechat)}</span></div>`:''}
+                ${r.remark?`<div class="row"><span class="lbl">备注：</span><span class="val">${escapeHtml(r.remark)}</span></div>`:''}
+                ${r.submitTime?`<div class="row"><span class="lbl">提交：</span><span class="val" style="color:var(--text-dim)">${escapeHtml(r.submitTime)}</span></div>`:''}
+            </div>
+            <div class="reg-card-foot">
+                ${r.status!=='imported'?`<button class="btn" onclick="importRegistration('${r.id}')">📥 导入看板</button>`:`<button class="btn" disabled style="opacity:0.5">已导入</button>`}
+                <button class="btn warning" onclick="copyRegInfo('${r.id}')">📋 复制信息</button>
+                <button class="btn danger" onclick="deleteRegistration('${r.id}')">🗑 删除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 导入登记到看板
+window.importRegistration = function(id){
+    fetch('/api/registration/import', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id})
+    }).then(r=>r.json()).then(res=>{
+        if(res.code === 0){
+            showToast(`✅ ${res.guest.name} 已导入看板`, 'success');
+            loadRegistrations();
+        } else {
+            showToast('导入失败: ' + (res.msg||''), 'error');
+        }
+    }).catch(()=>showToast('导入失败','error'));
+};
+
+// 删除登记
+window.deleteRegistration = function(id){
+    if(!confirm('确定删除这条登记记录吗？')) return;
+    fetch('/api/registration/delete', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id})
+    }).then(r=>r.json()).then(res=>{
+        if(res.code === 0){
+            showToast('已删除', 'success');
+            loadRegistrations();
+        }
+    }).catch(()=>showToast('删除失败','error'));
+};
+
+// 复制登记信息
+window.copyRegInfo = function(id){
+    const r = regListData.find(x=>x.id===id);
+    if(!r) return;
+    const text = [
+        '【直播嘉宾登记】',
+        '角色：' + (r.role||''),
+        '姓名：' + (r.name||''),
+        r.city ? ('地区：' + r.city) : '',
+        r.company ? ('身份：' + r.company) : '',
+        '简介：' + (r.desc||''),
+        r.demand ? ('需求：' + r.demand) : '',
+        '电话：' + (r.phone||''),
+        r.wechat ? ('微信：' + r.wechat) : '',
+        r.remark ? ('备注：' + r.remark) : '',
+        '提交时间：' + (r.submitTime||''),
+    ].filter(s=>s).join('\n');
+    navigator.clipboard.writeText(text).then(()=>{
+        showToast('信息已复制', 'success');
+    }).catch(()=>{
+        prompt('请复制以下信息：', text);
+    });
+};
+
+// 导出全部登记为文本
+$('regExportBtn').onclick = function(){
+    if(!regListData.length){ showToast('暂无登记可导出','error'); return; }
+    const text = regListData.map((r,i)=>`--- 第${i+1}条 ---\n` + [
+        '角色：' + (r.role||''), '姓名：' + (r.name||''),
+        r.city ? ('地区：' + r.city) : '', r.company ? ('身份：' + r.company) : '',
+        '简介：' + (r.desc||''), r.demand ? ('需求：' + r.demand) : '',
+        '电话：' + (r.phone||''), r.wechat ? ('微信：' + r.wechat) : '',
+        r.remark ? ('备注：' + r.remark) : '',
+        '提交：' + (r.submitTime||''), '状态：' + (r.status==='imported'?'已导入':'待处理'),
+    ].filter(s=>s).join('\n')).join('\n\n');
+    const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `嘉宾登记_${new Date().toLocaleDateString().replace(/\//g,'-')}.txt`;
+    a.click();
+    showToast('已导出', 'success');
+};
+
+// 打开/关闭登记弹窗
+$('regBtn').onclick = function(){
+    $('regModal').classList.add('show');
+    loadRegistrations();
+};
+$('regCloseBtn').onclick = function(){
+    $('regModal').classList.remove('show');
+};
+$('regRefreshBtn').onclick = function(){
+    loadRegistrations();
+    showToast('已刷新','success');
+};
+// 点击遮罩关闭
+$('regModal').addEventListener('click', function(e){
+    if(e.target === this) this.classList.remove('show');
+});
+
+// 页面加载后先拉一次登记数（更新角标）
+setTimeout(loadRegistrations, 800);
+</script>
+</body>
+</html>
