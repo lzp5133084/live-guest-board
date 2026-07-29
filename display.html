@@ -817,6 +817,25 @@ const floatWindows = [];
 let floatZIndex = 100;
 let floatIdCounter = 0;
 
+// === 全局共享拖动处理器（只绑定一次，避免多浮窗累积监听器）===
+let dragTarget = null;
+let dragOffsetX = 0, dragOffsetY = 0;
+document.addEventListener('mousemove', (e)=>{
+    if(!dragTarget) return;
+    const winObj = dragTarget._winObj;
+    winObj.x = e.clientX - dragOffsetX;
+    winObj.y = e.clientY - dragOffsetY;
+    // 限制在视口范围内
+    winObj.x = Math.max(-dragTarget.offsetWidth+80, Math.min(window.innerWidth-80, winObj.x));
+    winObj.y = Math.max(0, Math.min(window.innerHeight-40, winObj.y));
+    dragTarget.style.left = winObj.x + 'px';
+    dragTarget.style.top = winObj.y + 'px';
+});
+document.addEventListener('mouseup', ()=>{
+    if(dragTarget && dragTarget._winObj.saved) saveFloatWindows();
+    dragTarget = null;
+});
+
 // 从 localStorage 加载已保存的浮窗
 function loadFloatWindows(){
     try{
@@ -921,8 +940,10 @@ function createFloatWindow(initData={}){
     const win = document.createElement('div');
     win.className = 'float-win' + (initData.saved ? ' saved' : '') + (initData.minimized ? ' minimized' : '');
     win.style.zIndex = ++floatZIndex;
-    win.style.left = (initData.x || 100 + floatWindows.length * 30) + 'px';
-    win.style.top = (initData.y || 80 + floatWindows.length * 30) + 'px';
+    const posX = initData.x != null ? initData.x : 100 + floatWindows.length * 30;
+    const posY = initData.y != null ? initData.y : 80 + floatWindows.length * 30;
+    win.style.left = posX + 'px';
+    win.style.top = posY + 'px';
     
     win.innerHTML = `
         <div class="float-header">
@@ -981,37 +1002,26 @@ function createFloatWindow(initData={}){
     `;
     
     document.body.appendChild(win);
-    
+
     const winObj = {
         id, element: win, data,
-        x: initData.x || 100 + floatWindows.length * 30,
-        y: initData.y || 80 + floatWindows.length * 30,
+        x: posX,
+        y: posY,
         saved: initData.saved || false,
         minimized: initData.minimized || false,
     };
+    win._winObj = winObj;  // 供全局拖动处理器引用
     floatWindows.push(winObj);
     
-    // === 拖动功能 ===
+    // === 拖动功能（使用全局共享 dragTarget，不再每窗绑定 document 事件）===
     const header = win.querySelector('.float-header');
-    let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
     header.addEventListener('mousedown', (e)=>{
         if(e.target.tagName === 'BUTTON') return;
-        isDragging = true;
+        dragTarget = win;
         dragOffsetX = e.clientX - winObj.x;
         dragOffsetY = e.clientY - winObj.y;
         win.style.zIndex = ++floatZIndex;
         e.preventDefault();
-    });
-    document.addEventListener('mousemove', (e)=>{
-        if(!isDragging) return;
-        winObj.x = e.clientX - dragOffsetX;
-        winObj.y = e.clientY - dragOffsetY;
-        win.style.left = winObj.x + 'px';
-        win.style.top = winObj.y + 'px';
-    });
-    document.addEventListener('mouseup', ()=>{
-        if(isDragging && winObj.saved) saveFloatWindows();
-        isDragging = false;
     });
     
     // 点击置顶层级
