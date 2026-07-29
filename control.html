@@ -614,9 +614,18 @@ class Particle{
     draw(){
         ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
         const color = getComputedStyle(document.body).getPropertyValue('--accent').trim();
-        ctx.fillStyle = color.replace(')', `,${this.alpha})`).replace('rgb','rgba');
+        ctx.fillStyle = hexToRgba(color, this.alpha);
         ctx.fill();
     }
+}
+// hex 颜色转 rgba（兼容 #rgb / #rrggbb）
+function hexToRgba(hex, alpha){
+    hex = (hex||'#4da6ff').replace('#','').trim();
+    if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+    const r = parseInt(hex.substr(0,2),16)||77;
+    const g = parseInt(hex.substr(2,2),16)||166;
+    const b = parseInt(hex.substr(4,2),16)||255;
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 function initParticle(){
     particles=[];
@@ -937,7 +946,7 @@ function renderArchives(){
         box.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:20px;font-size:12px;">暂无存档</div>';
         return;
     }
-    box.innerHTML=archiveList.map(a=>`
+    box.innerHTML=archiveList.map((a,i)=>`
         <div class="archive-item">
             <div class="name">📁 ${escapeHtml(a.name)}</div>
             <div class="meta">
@@ -945,12 +954,27 @@ function renderArchives(){
                 <span>${(a.size/1024).toFixed(1)}KB</span>
             </div>
             <div class="actions">
-                <button onclick="loadArchive('${escapeHtml(a.name)}')">📂 加载</button>
-                <button class="del" onclick="deleteArchive('${escapeHtml(a.name)}')">🗑 删除</button>
+                <button data-idx="${i}" data-action="load">📂 加载</button>
+                <button class="del" data-idx="${i}" data-action="del">🗑 删除</button>
             </div>
         </div>
     `).join('');
 }
+// 事件委托：避免存档名含特殊字符时 onclick 断裂
+$('archiveList').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-action]');
+    if(!btn) return;
+    const idx = parseInt(btn.dataset.idx);
+    const a = archiveList[idx];
+    if(!a) return;
+    if(btn.dataset.action === 'load'){
+        if(!confirm(`确定加载存档 "${a.name}"？当前数据将被覆盖。`))return;
+        sendMsg({type:"loadArchive",name:a.name});
+    }else if(btn.dataset.action === 'del'){
+        if(!confirm(`确定删除存档 "${a.name}"？`))return;
+        sendMsg({type:"deleteArchive",name:a.name});
+    }
+});
 
 $('saveArchiveBtn').onclick=()=>{
     const name=prompt('请输入存档名称：', `直播存档_${new Date().toLocaleDateString().replace(/\//g,'-')}`);
@@ -958,15 +982,6 @@ $('saveArchiveBtn').onclick=()=>{
     sendMsg({type:"saveArchive",name});
 };
 $('refreshArchiveBtn').onclick=()=>sendMsg({type:"listArchives"});
-
-window.loadArchive=function(name){
-    if(!confirm(`确定加载存档 "${name}"？当前数据将被覆盖。`))return;
-    sendMsg({type:"loadArchive",name});
-};
-window.deleteArchive=function(name){
-    if(!confirm(`确定删除存档 "${name}"？`))return;
-    sendMsg({type:"deleteArchive",name});
-};
 
 // ========== 嘉宾登记管理 ==========
 let regTotalCount = 0;          // 登记总数（来自服务端推送）
